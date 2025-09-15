@@ -8,6 +8,13 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
+// Extend session interface to include requestedRole
+declare module "express-session" {
+  interface SessionData {
+    requestedRole?: string;
+  }
+}
+
 // REPLIT_DOMAINS is now optional - we'll build callback URLs dynamically per request
 
 const getOidcConfig = memoize(
@@ -69,14 +76,25 @@ function updateUserSession(
 
 async function upsertUser(
   claims: any,
+  requestedRole?: string
 ) {
-  await storage.upsertUser({
+  const userData = {
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
-  });
+  };
+
+  // Only set role if specifically requested and user doesn't exist yet
+  if (requestedRole === 'admin' || requestedRole === 'student') {
+    const existingUser = await storage.getUser(claims["sub"]);
+    if (!existingUser) {
+      (userData as any).role = requestedRole;
+    }
+  }
+
+  await storage.upsertUser(userData);
 }
 
 export async function setupAuth(app: Express) {
@@ -93,6 +111,7 @@ export async function setupAuth(app: Express) {
   ) => {
     const user = {};
     updateUserSession(user, tokens);
+    // Note: req is not available in verify function, so we'll handle role in callback
     await upsertUser(tokens.claims());
     verified(null, user);
   };
@@ -115,6 +134,12 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
+    // Store the requested role in session for use after authentication
+    const requestedRole = req.query.role as string;
+    if (requestedRole === 'admin' || requestedRole === 'student') {
+      req.session.requestedRole = requestedRole;
+    }
+    
     passport.authenticate("replitauth", {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
@@ -125,6 +150,24 @@ export async function setupAuth(app: Express) {
     passport.authenticate("replitauth", {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
+    }, async (err: any, user: any) => {
+      if (err) return next(err);
+      if (!user) return res.redirect("/api/login");
+      
+      // Handle role assignment after successful authentication
+      const requestedRole = req.session.requestedRole;
+      if (requestedRole && user) {
+        const claims = (user as any).claims;
+        if (claims) {
+          await upsertUser(claims, requestedRole);
+        }
+        delete req.session.requestedRole; // Clean up
+      }
+      
+      req.logIn(user, (err) => {
+        if (err) return next(err);
+        res.redirect("/");
+      });
     })(req, res, next);
   });
 
