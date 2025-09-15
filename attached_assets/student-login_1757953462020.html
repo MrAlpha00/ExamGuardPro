@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Login - SecureExam</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --secondary: #8b5cf6;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #1f2937;
+            --light: #f8fafc;
+            --white: #ffffff;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-800: #1e293b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .navbar {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: rgba(255,255,255,0.8);
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: white;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            padding: 3rem;
+            width: 100%;
+            max-width: 500px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .login-header .icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            color: white;
+            font-size: 2rem;
+        }
+
+        .login-header h1 {
+            color: var(--dark);
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-header p {
+            color: var(--gray-600);
+            font-size: 1rem;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            font-size: 0.9rem;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-600);
+            font-size: 1.1rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 1rem 1rem 1rem 3rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: var(--gray-100);
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            background: white;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-control:focus + i {
+            color: var(--primary);
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            margin-top: 1rem;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 1.5rem 0;
+            color: var(--gray-600);
+            font-size: 0.9rem;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--gray-300);
+        }
+
+        .divider span {
+            padding: 0 1rem;
+        }
+
+        .demo-login {
+            background: var(--gray-100);
+            border: 2px dashed var(--gray-300);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .demo-login h3 {
+            color: var(--gray-700);
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .demo-credentials {
+            display: grid;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+            text-align: left;
+        }
+
+        .demo-credential {
+            background: white;
+            padding: 0.75rem;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .quick-login-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+
+        .quick-login-btn:hover {
+            background: #0891b2;
+        }
+
+        .footer-links {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .footer-links a {
+            color: var(--primary);
+            text-decoration: none;
+            margin: 0 1rem;
+            font-size: 0.9rem;
+        }
+
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .nav-links {
+                gap: 1rem;
+            }
+
+            .login-container {
+                padding: 2rem;
+                margin: 1rem;
+            }
+
+            .login-header h1 {
+                font-size: 1.5rem;
+            }
+        }
+
+        /* Loading Animation */
+        .loading {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .btn-primary.loading .loading {
+            display: inline-block;
+        }
+
+        .btn-primary.loading .btn-text {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <a href="index.html" class="logo">
+                <i class="fas fa-graduation-cap"></i>
+                SecureExam
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#contact">Support</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="icon">
+                    <i class="fas fa-user-graduate"></i>
+                </div>
+                <h1>Student Login</h1>
+                <p>Enter your credentials to access the examination portal</p>
+            </div>
+
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label for="rollNumber">Roll Number</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="rollNumber" class="form-control" placeholder="Enter your roll number" required>
+                        <i class="fas fa-id-card"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="hallTicket">Hall Ticket Number</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="hallTicket" class="form-control" placeholder="Enter hall ticket number" required>
+                        <i class="fas fa-ticket-alt"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="examCode">Exam Code</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="examCode" class="form-control" placeholder="Enter exam access code" required>
+                        <i class="fas fa-key"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="password" class="form-control" placeholder="Enter your password" required>
+                        <i class="fas fa-lock"></i>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="loginBtn">
+                    <span class="btn-text">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Login & Start Verification
+                    </span>
+                    <div class="loading"></div>
+                </button>
+            </form>
+
+            <div class="divider">
+                <span>Demo Access</span>
+            </div>
+
+            <div class="demo-login">
+                <h3><i class="fas fa-flask"></i> Try Demo Version</h3>
+                <div class="demo-credentials">
+                    <div class="demo-credential">
+                        <span><strong>Roll Number:</strong></span>
+                        <span>CS21B1234</span>
+                    </div>
+                    <div class="demo-credential">
+                        <span><strong>Hall Ticket:</strong></span>
+                        <span>HT2024001</span>
+                    </div>
+                    <div class="demo-credential">
+                        <span><strong>Exam Code:</strong></span>
+                        <span>MATH101</span>
+                    </div>
+                    <div class="demo-credential">
+                        <span><strong>Password:</strong></span>
+                        <span>demo123</span>
+                    </div>
+                </div>
+                <button class="quick-login-btn" onclick="fillDemoCredentials()">
+                    <i class="fas fa-magic"></i> Use Demo Credentials
+                </button>
+            </div>
+
+            <div class="footer-links">
+                <a href="#help">Need Help?</a>
+                <a href="#contact">Contact Support</a>
+                <a href="index.html">Back to Home</a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Fill demo credentials
+        function fillDemoCredentials() {
+            document.getElementById('rollNumber').value = 'CS21B1234';
+            document.getElementById('hallTicket').value = 'HT2024001';
+            document.getElementById('examCode').value = 'MATH101';
+            document.getElementById('password').value = 'demo123';
+        }
+
+        // Handle form submission
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const loginBtn = document.getElementById('loginBtn');
+            const rollNumber = document.getElementById('rollNumber').value;
+            const hallTicket = document.getElementById('hallTicket').value;
+            const examCode = document.getElementById('examCode').value;
+            const password = document.getElementById('password').value;
+
+            // Validation
+            if (!rollNumber || !hallTicket || !examCode || !password) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            // Show loading state
+            loginBtn.classList.add('loading');
+            
+            // Simulate login process
+            setTimeout(() => {
+                loginBtn.classList.remove('loading');
+                
+                // Check demo credentials
+                if (rollNumber === 'CS21B1234' && hallTicket === 'HT2024001' && 
+                    examCode === 'MATH101' && password === 'demo123') {
+                    
+                    alert('Login successful! Redirecting to system verification...');
+                    // Redirect to exam page
+                    window.location.href = 'exam.html?roll=' + encodeURIComponent(rollNumber) + 
+                                         '&ticket=' + encodeURIComponent(hallTicket);
+                } else {
+                    alert('Invalid credentials. Please check your details or use demo credentials.');
+                }
+            }, 2000);
+        });
+
+        // Enhanced form interactions
+        document.querySelectorAll('.form-control').forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.parentElement.classList.add('focused');
+            });
+            
+            input.addEventListener('blur', function() {
+                this.parentElement.parentElement.classList.remove('focused');
+            });
+        });
+
+        // Auto-uppercase for roll number and hall ticket
+        document.getElementById('rollNumber').addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase();
+        });
+
+        document.getElementById('hallTicket').addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase();
+        });
+
+        document.getElementById('examCode').addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase();
+        });
+    </script>
+    <!-- put in student-login.html or a shared script -->
+    <video id="video" autoplay playsinline width="640" height="480"></video>
+    <canvas id="snap" width="640" height="480" style="display:none"></canvas>
+    <button id="startCam">Start Camera</button>
+    <button id="takeSnap">Take Snapshot</button>
+    
+    <script>
+     async function startCamera() {
+  const v = document.getElementById('video');
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+  v.srcObject = stream;
+  await v.play();
+}
+     function takeSnapshot() {
+  const v = document.getElementById('video');
+  const c = document.getElementById('snap');
+  const ctx = c.getContext('2d');
+  ctx.drawImage(v, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.8); // base64 JPEG
+       }
+     document.getElementById('startCam').onclick = startCamera;
+     document.getElementById('takeSnap').onclick = () => {
+  const dataUrl = takeSnapshot();
+  console.log('snapshot length', dataUrl.length);
+};
+    </script>
+</body>
+</html>
