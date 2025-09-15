@@ -51,6 +51,35 @@ app.use((req, res, next) => {
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (app.get("env") === "development") {
+    // Fix Vite HMR WebSocket configuration for Replit environment by disabling HMR
+    app.all('/@vite/client', (req, res) => {
+      res.type('application/javascript');
+      res.set('Cache-Control', 'no-store');
+      res.send(`
+        export function createHotContext(){
+          const hot={
+            on(){},off(){},emit(){},dispose(){},prune(){},
+            invalidate(){},accept(){},decline(){},data:null,
+            send(){},_notifyListeners(){},_queueUpdate(){}
+          };
+          return hot;
+        }
+        export function updateStyle(){}
+        export function removeStyle(){}
+        export function injectQuery(url){ return url; }
+        export const __HMR_PORT__ = null;
+        export const __HMR_HOSTNAME__ = null;
+        export default {};
+        // Provide module specifier resolution fallback
+        if (typeof window !== 'undefined') {
+          window.__hmr_import = function(id) { 
+            if (id === 'undefined') return Promise.resolve({});
+            return import(id).catch(() => ({})); 
+          };
+        }
+      `);
+    });
+    
     await setupVite(app, server);
   } else {
     serveStatic(app);
