@@ -1,0 +1,323 @@
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
+import { storage } from "./storage";
+import { setupAuth, isAuthenticated } from "./replitAuth";
+import { insertHallTicketSchema, insertExamSessionSchema, insertSecurityIncidentSchema, insertMonitoringLogSchema } from "@shared/schema";
+import QRCode from "qrcode";
+import { nanoid } from "nanoid";
+
+interface WebSocketClient extends WebSocket {
+  sessionId?: string;
+  userId?: string;
+  type?: 'admin' | 'student';
+}
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth middleware
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Hall ticket routes
+  app.post('/api/hall-tickets', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const data = insertHallTicketSchema.parse(req.body);
+      const hallTicketId = `HT${new Date().getFullYear()}${nanoid(8).toUpperCase()}`;
+      
+      // Generate QR code data
+      const qrData = JSON.stringify({
+        hallTicketId,
+        rollNumber: data.rollNumber,
+        examName: data.examName,
+        timestamp: new Date().getTime()
+      });
+
+      const hallTicket = await storage.createHallTicket({
+        ...data,
+        hallTicketId,
+        qrCodeData: qrData,
+        createdBy: userId,
+      });
+
+      res.json(hallTicket);
+    } catch (error) {
+      console.error("Error creating hall ticket:", error);
+      res.status(500).json({ message: "Failed to create hall ticket" });
+    }
+  });
+
+  app.get('/api/hall-tickets', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const hallTickets = await storage.getHallTicketsByCreator(userId);
+      res.json(hallTickets);
+    } catch (error) {
+      console.error("Error fetching hall tickets:", error);
+      res.status(500).json({ message: "Failed to fetch hall tickets" });
+    }
+  });
+
+  app.get('/api/hall-tickets/:id/qr', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const hallTicket = await storage.getHallTicketById(id);
+      
+      if (!hallTicket) {
+        return res.status(404).json({ message: "Hall ticket not found" });
+      }
+
+      const qrCodeUrl = await QRCode.toDataURL(hallTicket.qrCodeData, {
+        width: 300,
+        margin: 2,
+      });
+
+      res.json({ qrCodeUrl });
+    } catch (error) {
+      console.error("Error generating QR code:", error);
+      res.status(500).json({ message: "Failed to generate QR code" });
+    }
+  });
+
+  // Student authentication routes
+  app.post('/api/auth/verify-hall-ticket', async (req, res) => {
+    try {
+      const { qrData, rollNumber } = req.body;
+      
+      const hallTicket = await storage.getHallTicketByQR(qrData);
+      if (!hallTicket) {
+        return res.status(404).json({ message: "Invalid hall ticket" });
+      }
+
+      if (hallTicket.rollNumber !== rollNumber) {
+        return res.status(400).json({ message: "Roll number mismatch" });
+      }
+
+      res.json({
+        valid: true,
+        hallTicket: {
+          id: hallTicket.id,
+          examName: hallTicket.examName,
+          studentName: hallTicket.studentName,
+          rollNumber: hallTicket.rollNumber,
+          examDate: hallTicket.examDate,
+          duration: hallTicket.duration,
+        }
+      });
+    } catch (error) {
+      console.error("Error verifying hall ticket:", error);
+      res.status(500).json({ message: "Failed to verify hall ticket" });
+    }
+  });
+
+  // Exam session routes
+  app.post('/api/exam-sessions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = insertExamSessionSchema.parse(req.body);
+      
+      // Check if session already exists
+      const existingSession = await storage.getExamSessionByStudent(userId, data.hallTicketId);
+      if (existingSession) {
+        return res.json(existingSession);
+      }
+
+      const examSession = await storage.createExamSession({
+        ...data,
+        studentId: userId,
+      });
+
+      res.json(examSession);
+    } catch (error) {
+      console.error("Error creating exam session:", error);
+      res.status(500).json({ message: "Failed to create exam session" });
+    }
+  });
+
+  app.get('/api/exam-sessions/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const session = await storage.getExamSession(id);
+      
+      if (!session) {
+        return res.status(404).json({ message: "Exam session not found" });
+      }
+
+      res.json(session);
+    } catch (error) {
+      console.error("Error fetching exam session:", error);
+      res.status(500).json({ message: "Failed to fetch exam session" });
+    }
+  });
+
+  app.patch('/api/exam-sessions/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const session = await storage.updateExamSession(id, updates);
+      res.json(session);
+    } catch (error) {
+      console.error("Error updating exam session:", error);
+      res.status(500).json({ message: "Failed to update exam session" });
+    }
+  });
+
+  // Security incident routes
+  app.post('/api/security-incidents', isAuthenticated, async (req: any, res) => {
+    try {
+      const data = insertSecurityIncidentSchema.parse(req.body);
+      const incident = await storage.createSecurityIncident(data);
+      
+      // Broadcast to admin clients
+      wss.clients.forEach((client: WebSocketClient) => {
+        if (client.readyState === WebSocket.OPEN && client.type === 'admin') {
+          client.send(JSON.stringify({
+            type: 'security_incident',
+            data: incident
+          }));
+        }
+      });
+
+      res.json(incident);
+    } catch (error) {
+      console.error("Error creating security incident:", error);
+      res.status(500).json({ message: "Failed to create security incident" });
+    }
+  });
+
+  app.get('/api/security-incidents', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const incidents = await storage.getActiveSecurityIncidents();
+      res.json(incidents);
+    } catch (error) {
+      console.error("Error fetching security incidents:", error);
+      res.status(500).json({ message: "Failed to fetch security incidents" });
+    }
+  });
+
+  // Monitoring routes
+  app.post('/api/monitoring-logs', isAuthenticated, async (req: any, res) => {
+    try {
+      const data = insertMonitoringLogSchema.parse(req.body);
+      const log = await storage.createMonitoringLog(data);
+      res.json(log);
+    } catch (error) {
+      console.error("Error creating monitoring log:", error);
+      res.status(500).json({ message: "Failed to create monitoring log" });
+    }
+  });
+
+  app.get('/api/exam-stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const stats = await storage.getExamStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching exam stats:", error);
+      res.status(500).json({ message: "Failed to fetch exam stats" });
+    }
+  });
+
+  app.get('/api/active-sessions', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const sessions = await storage.getActiveExamSessions();
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching active sessions:", error);
+      res.status(500).json({ message: "Failed to fetch active sessions" });
+    }
+  });
+
+  // Create HTTP server
+  const httpServer = createServer(app);
+
+  // Create WebSocket server
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws' 
+  });
+
+  wss.on('connection', (ws: WebSocketClient) => {
+    ws.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        if (data.type === 'auth') {
+          ws.userId = data.userId;
+          ws.type = data.userType;
+          ws.sessionId = data.sessionId;
+        }
+        
+        if (data.type === 'student_status_update') {
+          // Broadcast to admin clients
+          wss.clients.forEach((client: WebSocketClient) => {
+            if (client.readyState === WebSocket.OPEN && client.type === 'admin') {
+              client.send(JSON.stringify({
+                type: 'student_status',
+                data: data.payload
+              }));
+            }
+          });
+        }
+        
+        if (data.type === 'face_detection_update') {
+          // Log monitoring data
+          if (data.sessionId) {
+            await storage.createMonitoringLog({
+              sessionId: data.sessionId,
+              eventType: 'face_detected',
+              eventData: data.payload
+            });
+          }
+        }
+        
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+      }
+    });
+
+    ws.on('close', () => {
+      console.log('WebSocket connection closed');
+    });
+  });
+
+  return httpServer;
+}
