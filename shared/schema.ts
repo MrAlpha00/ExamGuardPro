@@ -161,6 +161,17 @@ export const insertHallTicketSchema = createInsertSchema(hallTickets).omit({
   updatedAt: true,
 });
 
+// Client input schema for hall ticket creation (only fields the client sends)
+export const clientHallTicketSchema = z.object({
+  examName: z.string().min(1, "Exam name is required"),
+  examDate: z.string().min(1, "Exam date is required"), // Will be converted to Date on server
+  duration: z.number().min(1, "Duration must be at least 1 minute"),
+  totalQuestions: z.number().min(1, "Total questions must be at least 1"),
+  rollNumber: z.string().min(1, "Roll number is required"),
+  studentName: z.string().min(1, "Student name is required"),
+  studentEmail: z.string().email("Valid email is required"),
+});
+
 export const insertExamSessionSchema = createInsertSchema(examSessions).omit({
   id: true,
   createdAt: true,
@@ -186,6 +197,7 @@ export const insertQuestionSchema = createInsertSchema(questions).omit({
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type InsertHallTicket = z.infer<typeof insertHallTicketSchema>;
+export type ClientHallTicket = z.infer<typeof clientHallTicketSchema>;
 export type HallTicket = typeof hallTickets.$inferSelect;
 export type InsertExamSession = z.infer<typeof insertExamSessionSchema>;
 export type ExamSession = typeof examSessions.$inferSelect;

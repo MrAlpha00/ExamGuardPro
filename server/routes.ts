@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertHallTicketSchema, insertExamSessionSchema, insertSecurityIncidentSchema, insertMonitoringLogSchema } from "@shared/schema";
+import { insertHallTicketSchema, clientHallTicketSchema, insertExamSessionSchema, insertSecurityIncidentSchema, insertMonitoringLogSchema } from "@shared/schema";
 import QRCode from "qrcode";
 import { nanoid } from "nanoid";
 
@@ -39,21 +39,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      const data = insertHallTicketSchema.parse(req.body);
+      const clientData = clientHallTicketSchema.parse(req.body);
       const hallTicketId = `HT${new Date().getFullYear()}${nanoid(8).toUpperCase()}`;
       
       // Generate QR code data
       const qrData = JSON.stringify({
         hallTicketId,
-        rollNumber: data.rollNumber,
-        examName: data.examName,
+        rollNumber: clientData.rollNumber,
+        examName: clientData.examName,
         timestamp: new Date().getTime()
       });
 
       const hallTicket = await storage.createHallTicket({
-        ...data,
         hallTicketId,
+        examName: clientData.examName,
+        examDate: new Date(clientData.examDate), // Convert string to Date
+        duration: clientData.duration,
+        totalQuestions: clientData.totalQuestions,
+        rollNumber: clientData.rollNumber,
+        studentName: clientData.studentName,
+        studentEmail: clientData.studentEmail,
         qrCodeData: qrData,
+        isActive: true,
         createdBy: userId,
       });
 

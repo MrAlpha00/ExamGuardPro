@@ -86,12 +86,9 @@ async function upsertUser(
     profileImageUrl: claims["profile_image_url"],
   };
 
-  // Only set role if specifically requested and user doesn't exist yet
+  // Set role if specifically requested (either for new users or role updates)
   if (requestedRole === 'admin' || requestedRole === 'student') {
-    const existingUser = await storage.getUser(claims["sub"]);
-    if (!existingUser) {
-      (userData as any).role = requestedRole;
-    }
+    (userData as any).role = requestedRole;
   }
 
   await storage.upsertUser(userData);
