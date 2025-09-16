@@ -14,6 +14,7 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import MonitoringSystem from "@/pages/admin/monitoring";
 import IncidentManagement from "@/pages/admin/incidents";
 import QuestionManagement from "@/pages/admin/question-management";
+import Results from "@/pages/admin/results";
 
 // Student pages
 import StudentAuthentication from "@/pages/student/authentication";
@@ -37,6 +38,7 @@ function Router() {
           <Route path="/admin/monitoring" component={MonitoringSystem} />
           <Route path="/admin/incidents" component={IncidentManagement} />
           <Route path="/admin/questions" component={QuestionManagement} />
+          <Route path="/admin/results" component={Results} />
           
           {/* Student routes */}
           <Route path="/student/auth" component={StudentAuthentication} />
