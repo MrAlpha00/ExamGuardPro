@@ -52,6 +52,9 @@ export interface IStorage {
   
   // Question operations
   createQuestion(question: InsertQuestion): Promise<Question>;
+  getAllQuestions(): Promise<Question[]>;
+  updateQuestion(id: string, data: InsertQuestion): Promise<Question>;
+  deleteQuestion(id: string): Promise<void>;
   getQuestionsByExam(examName: string): Promise<Question[]>;
   getRandomQuestions(examName: string, limit: number): Promise<Question[]>;
   
