@@ -105,7 +105,11 @@ export const questions = pgTable("questions", {
   correctAnswer: varchar("correct_answer").notNull(),
   questionType: varchar("question_type").notNull().default("multiple_choice"),
   difficulty: varchar("difficulty").default("medium"),
+  subject: varchar("subject").notNull(),
+  topic: varchar("topic").notNull(),
+  marks: integer("marks").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Relations
@@ -191,6 +195,7 @@ export const insertMonitoringLogSchema = createInsertSchema(monitoringLogs).omit
 export const insertQuestionSchema = createInsertSchema(questions).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 
 // Types

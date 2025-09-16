@@ -222,6 +222,26 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
+  async getAllQuestions(): Promise<Question[]> {
+    return await db
+      .select()
+      .from(questions)
+      .orderBy(desc(questions.createdAt));
+  }
+
+  async updateQuestion(id: string, data: InsertQuestion): Promise<Question> {
+    const [question] = await db
+      .update(questions)
+      .set(data)
+      .where(eq(questions.id, id))
+      .returning();
+    return question;
+  }
+
+  async deleteQuestion(id: string): Promise<void> {
+    await db.delete(questions).where(eq(questions.id, id));
+  }
+
   // Analytics
   async getExamStats(): Promise<{
     activeStudents: number;

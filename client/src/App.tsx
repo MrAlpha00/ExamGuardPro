@@ -13,6 +13,7 @@ import HallTicketGeneration from "@/pages/admin/hall-ticket-generation";
 import AdminDashboard from "@/pages/admin/dashboard";
 import MonitoringSystem from "@/pages/admin/monitoring";
 import IncidentManagement from "@/pages/admin/incidents";
+import QuestionManagement from "@/pages/admin/question-management";
 
 // Student pages
 import StudentAuthentication from "@/pages/student/authentication";
@@ -35,6 +36,7 @@ function Router() {
           <Route path="/admin/dashboard" component={AdminDashboard} />
           <Route path="/admin/monitoring" component={MonitoringSystem} />
           <Route path="/admin/incidents" component={IncidentManagement} />
+          <Route path="/admin/questions" component={QuestionManagement} />
           
           {/* Student routes */}
           <Route path="/student/auth" component={StudentAuthentication} />
