@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
@@ -24,6 +25,8 @@ export default function HallTicketGeneration() {
     studentName: "",
     studentEmail: "",
   });
+  const [selectedTicket, setSelectedTicket] = useState<HallTicket | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   // Fetch existing hall tickets
   const { data: hallTickets = [], isLoading } = useQuery({
@@ -69,6 +72,106 @@ export default function HallTicketGeneration() {
 
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleViewDetails = (ticket: HallTicket) => {
+    setSelectedTicket(ticket);
+    setShowDetailsModal(true);
+  };
+
+  const handleDownloadPDF = async (ticket: HallTicket) => {
+    try {
+      // Generate PDF for hall ticket
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Set canvas size for A4 paper (595x842 points)
+      canvas.width = 595;
+      canvas.height = 842;
+
+      // Fill background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Add header
+      ctx.fillStyle = '#1e40af';
+      ctx.fillRect(0, 0, canvas.width, 80);
+
+      // Add title
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('HALL TICKET', canvas.width / 2, 35);
+      ctx.font = 'normal 14px Arial';
+      ctx.fillText('University Examination', canvas.width / 2, 55);
+
+      // Add content
+      ctx.fillStyle = '#000000';
+      ctx.textAlign = 'left';
+      ctx.font = 'bold 16px Arial';
+      
+      let y = 140;
+      const lineHeight = 30;
+
+      // Student details
+      ctx.fillText(`Hall Ticket ID: ${ticket.hallTicketId}`, 50, y);
+      y += lineHeight;
+      ctx.fillText(`Student Name: ${ticket.studentName}`, 50, y);
+      y += lineHeight;
+      ctx.fillText(`Roll Number: ${ticket.rollNumber}`, 50, y);
+      y += lineHeight;
+      ctx.fillText(`Email: ${ticket.studentEmail}`, 50, y);
+      y += lineHeight;
+      ctx.fillText(`Exam: ${ticket.examName}`, 50, y);
+      y += lineHeight;
+      ctx.fillText(`Date: ${new Date(ticket.examDate).toLocaleDateString()}`, 50, y);
+      y += lineHeight;
+      ctx.fillText(`Duration: ${ticket.duration} minutes`, 50, y);
+      y += lineHeight;
+      ctx.fillText(`Questions: ${ticket.totalQuestions}`, 50, y);
+
+      // Add QR code section
+      y += 60;
+      ctx.fillText('QR Code for Authentication:', 50, y);
+      y += 40;
+
+      // Generate QR code
+      const qrResponse = await fetch(`/api/hall-tickets/${ticket.id}/qr`);
+      const qrData = await qrResponse.json();
+      
+      if (qrData.qrCodeUrl) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 50, y, 200, 200);
+          
+          // Instructions
+          ctx.font = 'normal 12px Arial';
+          ctx.fillText('1. Scan this QR code during exam authentication', 50, y + 230);
+          ctx.fillText('2. Keep this hall ticket safe and bring it to the exam', 50, y + 250);
+          ctx.fillText('3. Arrive 30 minutes before the exam time', 50, y + 270);
+          
+          // Convert to PDF and download
+          const dataURL = canvas.toDataURL('image/png');
+          const link = document.createElement('a');
+          link.download = `hall-ticket-${ticket.hallTicketId}.png`;
+          link.href = dataURL;
+          link.click();
+
+          toast({
+            title: "Download Complete",
+            description: `Hall ticket for ${ticket.studentName} downloaded successfully`,
+          });
+        };
+        img.src = qrData.qrCodeUrl;
+      }
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate hall ticket PDF",
+        variant: "destructive",
+      });
+    }
   };
 
   if (user?.role !== 'admin') {
@@ -309,10 +412,16 @@ export default function HallTicketGeneration() {
                         <div>
                           <div className="font-medium text-sm">{ticket.hallTicketId}</div>
                           <div className="text-xs text-muted-foreground">{ticket.studentName} ({ticket.rollNumber})</div>
+                          <div className="text-xs text-muted-foreground">{ticket.examName} • {new Date(ticket.examDate).toLocaleDateString()}</div>
                         </div>
                         <div className="flex items-center space-x-2">
+                          <Button size="sm" variant="outline" onClick={() => handleViewDetails(ticket)} data-testid={`button-view-details-${ticket.id}`}>
+                            <i className="fas fa-eye mr-1"></i>View
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleDownloadPDF(ticket)} data-testid={`button-download-${ticket.id}`}>
+                            <i className="fas fa-download mr-1"></i>PDF
+                          </Button>
                           <div className="status-indicator status-online"></div>
-                          <span className="text-xs text-muted-foreground">Active</span>
                         </div>
                       </div>
                     ))}
@@ -323,6 +432,97 @@ export default function HallTicketGeneration() {
           </div>
         </div>
       </div>
+
+      {/* Detailed View Modal */}
+      <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Hall Ticket Details</DialogTitle>
+          </DialogHeader>
+          
+          {selectedTicket && (
+            <div className="space-y-6">
+              {/* Student Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Student Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Hall Ticket ID</Label>
+                      <p className="font-mono text-sm">{selectedTicket.hallTicketId}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Roll Number</Label>
+                      <p className="text-sm">{selectedTicket.rollNumber}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Student Name</Label>
+                      <p className="text-sm">{selectedTicket.studentName}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Email</Label>
+                      <p className="text-sm">{selectedTicket.studentEmail}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Exam Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Exam Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Exam Name</Label>
+                      <p className="text-sm">{selectedTicket.examName}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Date</Label>
+                      <p className="text-sm">{new Date(selectedTicket.examDate).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Duration</Label>
+                      <p className="text-sm">{selectedTicket.duration} minutes</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Total Questions</Label>
+                      <p className="text-sm">{selectedTicket.totalQuestions}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                      <p className="text-sm">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          selectedTicket.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {selectedTicket.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Created</Label>
+                      <p className="text-sm">{new Date(selectedTicket.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Actions */}
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowDetailsModal(false)}>
+                  Close
+                </Button>
+                <Button onClick={() => handleDownloadPDF(selectedTicket)}>
+                  <i className="fas fa-download mr-2"></i>Download PDF
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
