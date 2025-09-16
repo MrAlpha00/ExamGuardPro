@@ -236,6 +236,7 @@ export default function IdentityVerification() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-lg">{hallTicketData.studentName}</h4>
+                      <p className="text-muted-foreground">Hall Ticket: {hallTicketData.hallTicketId || hallTicketData.id}</p>
                       <p className="text-muted-foreground">Roll: {hallTicketData.rollNumber}</p>
                       <p className="text-muted-foreground">Exam: {hallTicketData.examName}</p>
                     </div>

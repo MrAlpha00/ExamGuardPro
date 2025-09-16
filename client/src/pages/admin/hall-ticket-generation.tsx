@@ -307,8 +307,8 @@ export default function HallTicketGeneration() {
                     {hallTickets.slice(0, 5).map((ticket: HallTicket) => (
                       <div key={ticket.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div>
-                          <div className="font-medium text-sm">{ticket.rollNumber}</div>
-                          <div className="text-xs text-muted-foreground">{ticket.studentName}</div>
+                          <div className="font-medium text-sm">{ticket.hallTicketId}</div>
+                          <div className="text-xs text-muted-foreground">{ticket.studentName} ({ticket.rollNumber})</div>
                         </div>
                         <div className="flex items-center space-x-2">
                           <div className="status-indicator status-online"></div>

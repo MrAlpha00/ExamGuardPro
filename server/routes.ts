@@ -127,6 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         valid: true,
         hallTicket: {
           id: hallTicket.id,
+          hallTicketId: hallTicket.hallTicketId,
           examName: hallTicket.examName,
           studentName: hallTicket.studentName,
           rollNumber: hallTicket.rollNumber,

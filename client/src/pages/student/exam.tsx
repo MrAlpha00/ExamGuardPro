@@ -300,7 +300,7 @@ export default function ExamMode() {
           <div>
             <h1 className="font-bold text-lg">{hallTicketData.examName}</h1>
             <p className="text-sm opacity-90">
-              Student: {hallTicketData.studentName} ({hallTicketData.rollNumber})
+              {hallTicketData.hallTicketId || hallTicketData.id} - {hallTicketData.studentName} ({hallTicketData.rollNumber})
             </p>
           </div>
         </div>
