@@ -128,7 +128,7 @@ export default function StudentAuthentication() {
               
               <div className="text-center">
                 <p className="text-sm text-muted-foreground mb-4">
-                  Position your hall ticket QR code within the scanner frame
+                  Click "Start QR Scanner" below, then hold your hall ticket QR code in front of the camera
                 </p>
               </div>
             </div>

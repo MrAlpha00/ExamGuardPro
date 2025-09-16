@@ -95,7 +95,7 @@ export default function QRScanner({ onScan, onError, className = "" }: QRScanner
           {!isScanning && (
             <div className="text-center">
               <i className="fas fa-qrcode text-4xl text-primary mb-2"></i>
-              <p className="text-muted-foreground text-sm mb-4">Position QR code here</p>
+              <p className="text-muted-foreground text-sm mb-4">Click "Start QR Scanner" to begin camera scanning</p>
               <div className="w-12 h-12 border-2 border-primary rounded-lg mx-auto opacity-50"></div>
             </div>
           )}
