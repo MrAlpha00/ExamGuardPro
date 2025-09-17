@@ -24,9 +24,12 @@ export default function IdentityVerification() {
   const [verificationStep, setVerificationStep] = useState<'camera' | 'photo' | 'document' | 'complete'>('camera');
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [documentUploaded, setDocumentUploaded] = useState(false);
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [documentVerificationStatus, setDocumentVerificationStatus] = useState<'pending' | 'verifying' | 'verified' | 'failed'>('pending');
+  const [documentPreview, setDocumentPreview] = useState<string | null>(null);
   
-  const { isActive: cameraActive, startCamera, stopCamera, capturePhoto } = useWebcam();
-  const { faceDetected, confidence } = useFaceDetection();
+  const { stream, isActive: cameraActive, error: cameraError, startCamera, stopCamera, capturePhoto } = useWebcam();
+  const { faceDetected, confidence } = useFaceDetection(stream);
 
   useEffect(() => {
     // Get hall ticket data from localStorage
@@ -78,17 +81,133 @@ export default function IdentityVerification() {
     }
   };
 
-  const handleDocumentUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const validateDocument = (file: File): { isValid: boolean; message: string } => {
+    // File type validation
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      return { isValid: false, message: 'Please upload a valid image file (JPEG, PNG, or WebP)' };
+    }
+    
+    // File size validation (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      return { isValid: false, message: 'File size must be less than 5MB' };
+    }
+    
+    // File name validation (basic)
+    if (file.name.length > 100) {
+      return { isValid: false, message: 'File name is too long' };
+    }
+    
+    return { isValid: true, message: 'Valid document format' };
+  };
+
+  const analyzeDocument = async (file: File): Promise<{ quality: 'good' | 'poor' | 'acceptable'; issues: string[] }> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        const issues: string[] = [];
+        let quality: 'good' | 'poor' | 'acceptable' = 'good';
+        
+        // Check image dimensions
+        if (img.width < 400 || img.height < 300) {
+          issues.push('Image resolution is too low');
+          quality = 'poor';
+        } else if (img.width < 800 || img.height < 600) {
+          issues.push('Consider using a higher resolution image');
+          quality = 'acceptable';
+        }
+        
+        // Check aspect ratio (should be somewhat rectangular like an ID)
+        const aspectRatio = img.width / img.height;
+        if (aspectRatio < 1.3 || aspectRatio > 2.0) {
+          issues.push('Image aspect ratio doesn\'t match typical ID cards');
+          if (quality === 'good') quality = 'acceptable';
+        }
+        
+        URL.revokeObjectURL(url);
+        resolve({ quality, issues });
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve({ quality: 'poor', issues: ['Failed to analyze image'] });
+      };
+      
+      img.src = url;
+    });
+  };
+
+  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      // In a real implementation, you would upload the file to your server
-      setDocumentUploaded(true);
-      setVerificationStep('complete');
+    if (!file) return;
+    
+    // Validate document format
+    const validation = validateDocument(file);
+    if (!validation.isValid) {
       toast({
-        title: "Document Uploaded",
-        description: "ID document uploaded successfully.",
+        title: "Invalid Document",
+        description: validation.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setDocumentFile(file);
+    setDocumentVerificationStatus('verifying');
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setDocumentPreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+    
+    try {
+      // Analyze document quality
+      const analysis = await analyzeDocument(file);
+      
+      setTimeout(() => {
+        if (analysis.quality === 'poor') {
+          setDocumentVerificationStatus('failed');
+          toast({
+            title: "Document Quality Issues",
+            description: `Please upload a clearer image. Issues: ${analysis.issues.join(', ')}`,
+            variant: "destructive",
+          });
+        } else {
+          setDocumentVerificationStatus('verified');
+          setDocumentUploaded(true);
+          setVerificationStep('complete');
+          
+          let message = "ID document verified successfully!";
+          if (analysis.issues.length > 0) {
+            message += ` Note: ${analysis.issues.join(', ')}`;
+          }
+          
+          toast({
+            title: "Document Verified",
+            description: message,
+          });
+        }
+      }, 2000); // Simulate processing time
+      
+    } catch (error) {
+      setDocumentVerificationStatus('failed');
+      toast({
+        title: "Verification Failed",
+        description: "Failed to process the document. Please try again.",
+        variant: "destructive",
       });
     }
+  };
+
+  const retryDocumentUpload = () => {
+    setDocumentFile(null);
+    setDocumentPreview(null);
+    setDocumentVerificationStatus('pending');
+    setDocumentUploaded(false);
   };
 
   const handleContinueToExam = () => {
@@ -170,8 +289,14 @@ export default function IdentityVerification() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <WebcamMonitor />
-                  <FaceDetection />
+                  <WebcamMonitor 
+                    stream={stream}
+                    isActive={cameraActive}
+                    error={cameraError}
+                    onStartCamera={startCamera}
+                    onStopCamera={stopCamera}
+                  />
+                  <FaceDetection stream={stream} />
                   
                   <div className="flex justify-between items-center">
                     <Button
@@ -204,10 +329,57 @@ export default function IdentityVerification() {
               </CardHeader>
               <CardContent>
                 <div className="border-2 border-dashed border-border rounded-xl p-6 text-center bg-muted">
-                  {documentUploaded ? (
+                  {documentVerificationStatus === 'verified' ? (
                     <div className="text-green-600">
                       <i className="fas fa-check-circle text-3xl mb-4"></i>
-                      <p className="font-medium">Document uploaded successfully</p>
+                      <p className="font-medium">Document verified successfully</p>
+                      {documentPreview && (
+                        <div className="mt-4">
+                          <img 
+                            src={documentPreview} 
+                            alt="Uploaded document" 
+                            className="max-w-32 max-h-24 object-cover rounded-lg mx-auto border"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">{documentFile?.name}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : documentVerificationStatus === 'verifying' ? (
+                    <div className="text-blue-600">
+                      <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="font-medium">Verifying document...</p>
+                      <p className="text-sm text-muted-foreground mt-2">Analyzing image quality and format</p>
+                      {documentPreview && (
+                        <div className="mt-4">
+                          <img 
+                            src={documentPreview} 
+                            alt="Uploaded document" 
+                            className="max-w-32 max-h-24 object-cover rounded-lg mx-auto border opacity-75"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : documentVerificationStatus === 'failed' ? (
+                    <div className="text-red-600">
+                      <i className="fas fa-exclamation-triangle text-3xl mb-4"></i>
+                      <p className="font-medium">Document verification failed</p>
+                      <p className="text-sm text-muted-foreground mt-2">Please upload a clearer image</p>
+                      {documentPreview && (
+                        <div className="mt-4">
+                          <img 
+                            src={documentPreview} 
+                            alt="Uploaded document" 
+                            className="max-w-32 max-h-24 object-cover rounded-lg mx-auto border opacity-50"
+                          />
+                        </div>
+                      )}
+                      <Button 
+                        onClick={retryDocumentUpload}
+                        className="mt-3 bg-primary hover:opacity-90"
+                        data-testid="button-retry-document"
+                      >
+                        <i className="fas fa-redo mr-2"></i>Try Again
+                      </Button>
                     </div>
                   ) : (
                     <>
@@ -215,10 +387,13 @@ export default function IdentityVerification() {
                       <p className="text-muted-foreground mb-4">
                         Upload your student ID or government-issued ID
                       </p>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        Supported formats: JPEG, PNG, WebP • Max size: 5MB
+                      </p>
                       <div>
                         <input
                           type="file"
-                          accept="image/*"
+                          accept="image/jpeg,image/jpg,image/png,image/webp"
                           onChange={handleDocumentUpload}
                           className="hidden"
                           id="document-upload"
@@ -254,7 +429,7 @@ export default function IdentityVerification() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-lg">{hallTicketData.studentName}</h4>
-                      <p className="text-muted-foreground">Hall Ticket: {hallTicketData.hallTicketId || hallTicketData.id}</p>
+                      <p className="text-muted-foreground">Hall Ticket: {hallTicketData.id}</p>
                       <p className="text-muted-foreground">Roll: {hallTicketData.rollNumber}</p>
                       <p className="text-muted-foreground">Exam: {hallTicketData.examName}</p>
                     </div>

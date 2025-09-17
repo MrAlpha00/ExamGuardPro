@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { useWebcam } from './useWebcam';
 
 interface FaceDetectionResult {
   faceDetected: boolean;
@@ -8,8 +7,7 @@ interface FaceDetectionResult {
   confidence: number;
 }
 
-export function useFaceDetection() {
-  const { stream } = useWebcam();
+export function useFaceDetection(stream?: MediaStream | null) {
   const [detection, setDetection] = useState<FaceDetectionResult>({
     faceDetected: false,
     multipleFaces: false,
@@ -44,7 +42,9 @@ export function useFaceDetection() {
 
       // Create video element for processing
       const video = document.createElement('video');
-      video.srcObject = stream;
+      if (stream) {
+        video.srcObject = stream;
+      }
       video.autoplay = true;
       video.playsInline = true;
       videoRef.current = video;

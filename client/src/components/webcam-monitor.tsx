@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useWebcam } from "@/hooks/useWebcam";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
@@ -7,16 +6,25 @@ interface WebcamMonitorProps {
   className?: string;
   showControls?: boolean;
   onStreamReady?: (stream: MediaStream) => void;
+  stream?: MediaStream | null;
+  isActive?: boolean;
+  error?: string | null;
+  onStartCamera?: () => void;
+  onStopCamera?: () => void;
 }
 
 export default function WebcamMonitor({ 
   className = "", 
   showControls = false, 
-  onStreamReady 
+  onStreamReady,
+  stream,
+  isActive = false,
+  error,
+  onStartCamera,
+  onStopCamera
 }: WebcamMonitorProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
-  const { stream, isActive, error, startCamera, stopCamera } = useWebcam();
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Set video stream when available
@@ -95,7 +103,7 @@ export default function WebcamMonitor({
                 {showControls && (
                   <Button 
                     className="mt-2" 
-                    onClick={startCamera}
+                    onClick={onStartCamera}
                     data-testid="button-start-camera"
                   >
                     Start Camera
@@ -128,7 +136,7 @@ export default function WebcamMonitor({
             <Button
               size="sm"
               variant="destructive"
-              onClick={stopCamera}
+              onClick={onStopCamera}
               data-testid="button-stop-camera"
             >
               <i className="fas fa-stop"></i>
@@ -147,7 +155,7 @@ export default function WebcamMonitor({
           <Button 
             size="sm" 
             className="mt-2" 
-            onClick={startCamera}
+            onClick={onStartCamera}
             data-testid="button-retry-camera"
           >
             Retry

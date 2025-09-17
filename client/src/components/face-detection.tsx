@@ -12,12 +12,14 @@ interface FaceDetectionProps {
   }) => void;
   showVisualization?: boolean;
   className?: string;
+  stream?: MediaStream | null;
 }
 
 export default function FaceDetection({ 
   onDetectionChange, 
   showVisualization = true, 
-  className = "" 
+  className = "",
+  stream
 }: FaceDetectionProps) {
   const { 
     faceDetected, 
@@ -26,7 +28,7 @@ export default function FaceDetection({
     confidence, 
     isLoading, 
     error 
-  } = useFaceDetection();
+  } = useFaceDetection(stream);
 
   const [detectionHistory, setDetectionHistory] = useState<boolean[]>([]);
   const [alertCount, setAlertCount] = useState(0);
