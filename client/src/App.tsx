@@ -26,26 +26,26 @@ function Router() {
 
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : (
+      {/* Home route - conditional based on auth */}
+      <Route path="/" component={isLoading || !isAuthenticated ? Landing : Home} />
+      
+      {/* Student routes - always available (they guard themselves) */}
+      <Route path="/student/auth" component={StudentAuthentication} />
+      <Route path="/student/identity-verification" component={IdentityVerification} />
+      <Route path="/student/exam" component={ExamMode} />
+      
+      {/* Admin routes - protected by auth */}
+      {isAuthenticated && (
         <>
-          <Route path="/" component={Home} />
-          
-          {/* Admin routes */}
           <Route path="/admin/hall-tickets" component={HallTicketGeneration} />
           <Route path="/admin/dashboard" component={AdminDashboard} />
           <Route path="/admin/monitoring" component={MonitoringSystem} />
           <Route path="/admin/incidents" component={IncidentManagement} />
           <Route path="/admin/questions" component={QuestionManagement} />
           <Route path="/admin/results" component={Results} />
-          
-          {/* Student routes */}
-          <Route path="/student/auth" component={StudentAuthentication} />
-          <Route path="/student/verify" component={IdentityVerification} />
-          <Route path="/student/exam" component={ExamMode} />
         </>
       )}
+      
       <Route component={NotFound} />
     </Switch>
   );

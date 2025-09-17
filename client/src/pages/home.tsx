@@ -168,7 +168,7 @@ export default function Home() {
                   <p className="text-muted-foreground text-sm mb-4">
                     Complete identity verification before starting your exam.
                   </p>
-                  <Link href="/student/verify">
+                  <Link href="/student/identity-verification">
                     <Button className="w-full" data-testid="link-verify">
                       Verify Identity
                     </Button>

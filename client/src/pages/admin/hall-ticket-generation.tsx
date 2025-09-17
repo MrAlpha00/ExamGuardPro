@@ -240,6 +240,19 @@ export default function HallTicketGeneration() {
         </div>
       </div>
 
+      {/* Back Button */}
+      <div className="fixed top-20 left-4 z-10">
+        <Button 
+          variant="outline" 
+          onClick={() => setLocation("/admin/dashboard")} 
+          className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+          data-testid="button-back"
+        >
+          <i className="fas fa-arrow-left mr-2"></i>
+          Back
+        </Button>
+      </div>
+      
       <div className="max-w-6xl mx-auto p-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Hall Ticket Generation Form */}

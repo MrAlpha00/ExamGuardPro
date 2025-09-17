@@ -53,6 +53,11 @@ export default function IdentityVerification() {
     }
   }, [setLocation, toast]);
 
+  // Auto-start camera when component loads
+  useEffect(() => {
+    startCamera();
+  }, [startCamera]);
+
   const handleCapturePhoto = async () => {
     try {
       const photoData = await capturePhoto();
@@ -129,6 +134,19 @@ export default function IdentityVerification() {
 
   return (
     <div className="min-h-screen bg-gradient-accent flex items-center justify-center p-4">
+      {/* Back Button */}
+      <div className="fixed top-4 left-4 z-10">
+        <Button 
+          variant="outline" 
+          onClick={() => setLocation("/student/auth")} 
+          className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+          data-testid="button-back"
+        >
+          <i className="fas fa-arrow-left mr-2"></i>
+          Back
+        </Button>
+      </div>
+      
       <div className="max-w-4xl w-full">
         {/* Header */}
         <div className="text-center mb-8">

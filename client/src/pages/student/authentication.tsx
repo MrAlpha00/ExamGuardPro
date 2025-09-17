@@ -31,7 +31,7 @@ export default function StudentAuthentication() {
       });
       // Store hall ticket data and navigate to verification
       localStorage.setItem("hallTicketData", JSON.stringify(result.hallTicket));
-      setLocation("/student/verify");
+      setLocation("/student/identity-verification");
     },
     onError: (error) => {
       toast({
