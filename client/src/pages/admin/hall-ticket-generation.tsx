@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 import type { HallTicket } from "@shared/schema";
+import jsPDF from "jspdf";
 
 export default function HallTicketGeneration() {
   const { user } = useAuth();
@@ -55,6 +56,28 @@ export default function HallTicketGeneration() {
         studentName: "",
         studentEmail: "",
       });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete hall ticket mutation
+  const deleteHallTicketMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/hall-tickets/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Hall ticket deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/hall-tickets"] });
     },
     onError: (error) => {
       toast({
@@ -151,12 +174,14 @@ export default function HallTicketGeneration() {
           ctx.fillText('2. Keep this hall ticket safe and bring it to the exam', 50, y + 250);
           ctx.fillText('3. Arrive 30 minutes before the exam time', 50, y + 270);
           
-          // Convert to PDF and download
-          const dataURL = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
-          link.download = `hall-ticket-${ticket.hallTicketId}.png`;
-          link.href = dataURL;
-          link.click();
+          // Create PDF with jsPDF
+          const pdf = new jsPDF();
+          
+          // Add the canvas as image to PDF
+          pdf.addImage(canvas, 'PNG', 0, 0, 210, 297); // A4 size in mm
+          
+          // Save as PDF
+          pdf.save(`hall-ticket-${ticket.hallTicketId}.pdf`);
 
           toast({
             title: "Download Complete",
@@ -420,6 +445,14 @@ export default function HallTicketGeneration() {
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => handleDownloadPDF(ticket)} data-testid={`button-download-${ticket.id}`}>
                             <i className="fas fa-download mr-1"></i>PDF
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="destructive" 
+                            onClick={() => deleteHallTicketMutation.mutate(ticket.id)} 
+                            data-testid={`button-delete-${ticket.id}`}
+                          >
+                            <i className="fas fa-trash mr-1"></i>Delete
                           </Button>
                           <div className="status-indicator status-online"></div>
                         </div>

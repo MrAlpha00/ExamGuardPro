@@ -70,16 +70,8 @@ export default function StudentAuthentication() {
       return;
     }
 
-    // Create QR data format for manual entry
-    const qrData = JSON.stringify({
-      hallTicketId: manualData.hallTicketId,
-      rollNumber: manualData.rollNumber,
-      examName: "Manual Entry",
-      timestamp: new Date().getTime()
-    });
-
+    // For manual entry, send hall ticket ID and roll number directly
     verifyHallTicketMutation.mutate({
-      qrData,
       rollNumber: manualData.rollNumber,
       hallTicketId: manualData.hallTicketId,
     });

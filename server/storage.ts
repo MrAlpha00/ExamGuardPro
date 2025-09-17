@@ -125,6 +125,22 @@ export class DatabaseStorage implements IStorage {
     return ticket;
   }
 
+  async getHallTicketByIdAndRoll(hallTicketId: string, rollNumber: string): Promise<HallTicket | undefined> {
+    const [ticket] = await db
+      .select()
+      .from(hallTickets)
+      .where(and(
+        eq(hallTickets.hallTicketId, hallTicketId),
+        eq(hallTickets.rollNumber, rollNumber),
+        eq(hallTickets.isActive, true)
+      ));
+    return ticket;
+  }
+
+  async deleteHallTicket(id: string): Promise<void> {
+    await db.delete(hallTickets).where(eq(hallTickets.id, id));
+  }
+
   // Exam session operations
   async createExamSession(session: InsertExamSession): Promise<ExamSession> {
     const [examSession] = await db.insert(examSessions).values(session).returning();

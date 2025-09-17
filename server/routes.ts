@@ -109,18 +109,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete('/api/hall-tickets/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      await storage.deleteHallTicket(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting hall ticket:", error);
+      res.status(500).json({ message: "Failed to delete hall ticket" });
+    }
+  });
+
   // Student authentication routes
   app.post('/api/auth/verify-hall-ticket', async (req, res) => {
     try {
-      const { qrData, rollNumber } = req.body;
+      const { qrData, rollNumber, hallTicketId } = req.body;
       
-      const hallTicket = await storage.getHallTicketByQR(qrData);
-      if (!hallTicket) {
-        return res.status(404).json({ message: "Invalid hall ticket" });
-      }
+      let hallTicket;
+      
+      // If hallTicketId is provided (manual entry), validate by hall ticket ID
+      if (hallTicketId) {
+        hallTicket = await storage.getHallTicketByIdAndRoll(hallTicketId, rollNumber);
+        
+        if (!hallTicket) {
+          return res.status(400).json({ message: "Invalid details" });
+        }
+      } else if (qrData) {
+        // QR code validation
+        hallTicket = await storage.getHallTicketByQR(qrData);
+        if (!hallTicket) {
+          return res.status(404).json({ message: "Invalid hall ticket" });
+        }
 
-      if (hallTicket.rollNumber !== rollNumber) {
-        return res.status(400).json({ message: "Roll number mismatch" });
+        if (hallTicket.rollNumber !== rollNumber) {
+          return res.status(400).json({ message: "Roll number mismatch" });
+        }
+      } else {
+        return res.status(400).json({ message: "Either QR data or hall ticket ID is required" });
       }
 
       res.json({

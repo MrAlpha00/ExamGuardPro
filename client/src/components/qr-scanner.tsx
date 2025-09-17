@@ -17,16 +17,37 @@ export default function QRScanner({ onScan, onError, className = "" }: QRScanner
   const { toast } = useToast();
 
   const startScanning = async () => {
-    if (!scannerRef.current) return;
+    if (!scannerRef.current) {
+      setError("Scanner container not ready");
+      return;
+    }
 
     try {
       setError(null);
       setIsScanning(true);
 
-      // Initialize Html5Qrcode
+      // Check if camera is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Camera not supported on this device");
+      }
+
+      // Request camera permission first
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach(track => track.stop()); // Stop the test stream
+      } catch (permissionError) {
+        throw new Error("Camera permission denied. Please allow camera access and try again.");
+      }
+
+      // Initialize Html5Qrcode safely
+      if (html5QrCode.current) {
+        await html5QrCode.current.clear();
+        html5QrCode.current = null;
+      }
+
       html5QrCode.current = new Html5Qrcode("qr-scanner");
 
-      // Start scanning
+      // Start scanning with better error handling
       await html5QrCode.current.start(
         { facingMode: "environment" }, // Use back camera if available
         {
@@ -50,6 +71,7 @@ export default function QRScanner({ onScan, onError, className = "" }: QRScanner
       );
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to start camera";
+      console.error("QR Scanner error:", err);
       setError(errorMessage);
       setIsScanning(false);
       onError?.(errorMessage);
@@ -89,28 +111,32 @@ export default function QRScanner({ onScan, onError, className = "" }: QRScanner
         <div
           id="qr-scanner"
           ref={scannerRef}
-          className={`qr-scanner mx-auto ${isScanning ? 'border-primary border-solid' : ''}`}
+          className="mx-auto min-h-[300px] w-full max-w-md"
           data-testid="qr-scanner-container"
+          style={{
+            background: isScanning ? 'transparent' : '#f3f4f6',
+            borderRadius: '8px',
+          }}
         >
           {!isScanning && (
-            <div className="text-center">
+            <div className="flex flex-col items-center justify-center h-[300px] text-center">
               <i className="fas fa-qrcode text-4xl text-primary mb-2"></i>
               <p className="text-muted-foreground text-sm mb-4">Click "Start QR Scanner" to begin camera scanning</p>
-              <div className="w-12 h-12 border-2 border-primary rounded-lg mx-auto opacity-50"></div>
+              <div className="w-12 h-12 border-2 border-primary rounded-lg opacity-50"></div>
             </div>
           )}
         </div>
 
-        {/* Scanning overlay */}
+        {/* Scanning overlay - positioned to not block camera */}
         {isScanning && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-64 h-64 border-2 border-primary rounded-lg">
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 pointer-events-none z-10">
+            <div className="w-48 h-48 border-2 border-green-500 rounded-lg">
               <div className="relative w-full h-full">
                 {/* Corner guides */}
-                <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-primary"></div>
-                <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-primary"></div>
-                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-primary"></div>
-                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-primary"></div>
+                <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-green-500"></div>
+                <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-green-500"></div>
+                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-green-500"></div>
+                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-green-500"></div>
               </div>
             </div>
           </div>
