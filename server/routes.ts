@@ -174,21 +174,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Exam session routes
-  app.post('/api/exam-sessions', isAuthenticated, async (req: any, res) => {
+  // Student exam session creation (no auth required - validated via hall ticket)
+  app.post('/api/exam-sessions', async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const data = insertExamSessionSchema.parse(req.body);
+      // Validate hall ticket exists and is active first
+      const hallTicket = await storage.getHallTicketById(req.body.hallTicketId);
+      if (!hallTicket || !hallTicket.isActive) {
+        return res.status(400).json({ message: "Invalid or inactive hall ticket" });
+      }
+
+      // For students, use hall ticket roll number as studentId (since they don't have Replit auth)
+      const studentId = `student_${hallTicket.rollNumber}`;
+      
+      // Create or get the student user record
+      let studentUser = await storage.getUser(studentId);
+      if (!studentUser) {
+        studentUser = await storage.upsertUser({
+          id: studentId,
+          email: hallTicket.studentEmail,
+          firstName: hallTicket.studentName.split(' ')[0],
+          lastName: hallTicket.studentName.split(' ').slice(1).join(' ') || '',
+          role: 'student',
+        });
+      }
+      
+      // Prepare data with studentId and convert startTime to Date
+      const sessionData = {
+        ...req.body,
+        studentId: studentId,
+        startTime: req.body.startTime ? new Date(req.body.startTime) : new Date(),
+      };
+
+      // Now validate with schema
+      const data = insertExamSessionSchema.parse(sessionData);
       
       // Check if session already exists
-      const existingSession = await storage.getExamSessionByStudent(userId, data.hallTicketId);
+      const existingSession = await storage.getExamSessionByStudent(studentId, data.hallTicketId);
       if (existingSession) {
         return res.json(existingSession);
       }
 
-      const examSession = await storage.createExamSession({
-        ...data,
-        studentId: userId,
-      });
+      const examSession = await storage.createExamSession(data);
 
       res.json(examSession);
     } catch (error) {
