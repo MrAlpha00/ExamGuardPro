@@ -33,9 +33,12 @@ export default function QuestionManagement() {
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
 
   // Fetch existing questions
-  const { data: questions = [], isLoading } = useQuery({
+  const { data: questions = [], isLoading } = useQuery<Question[]>({
     queryKey: ["/api/questions"],
   });
 
@@ -120,6 +123,36 @@ export default function QuestionManagement() {
     },
   });
 
+  // Bulk import mutation
+  const bulkImportMutation = useMutation({
+    mutationFn: async (questions: any[]) => {
+      const results = await Promise.all(
+        questions.map(async (questionData) => {
+          const response = await apiRequest("POST", "/api/questions", questionData);
+          return response.json();
+        })
+      );
+      return results;
+    },
+    onSuccess: (results) => {
+      toast({
+        title: "Success",
+        description: `${results.length} questions imported successfully`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
+      setShowImportModal(false);
+      setImportFile(null);
+      setImportPreview([]);
+    },
+    onError: (error) => {
+      toast({
+        title: "Import Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isEditing && selectedQuestion) {
@@ -160,6 +193,84 @@ export default function QuestionManagement() {
     if (confirm("Are you sure you want to delete this question?")) {
       deleteQuestionMutation.mutate(questionId);
     }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload a CSV file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setImportFile(file);
+    parseCSVFile(file);
+  };
+
+  const parseCSVFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
+      
+      // Expected headers: examName,questionText,optionA,optionB,optionC,optionD,correctAnswer,difficulty,subject,topic,marks
+      const expectedHeaders = ['examName', 'questionText', 'optionA', 'optionB', 'optionC', 'optionD', 'correctAnswer', 'difficulty', 'subject', 'topic', 'marks'];
+      
+      const missingHeaders = expectedHeaders.filter(h => !headers.includes(h));
+      if (missingHeaders.length > 0) {
+        toast({
+          title: "Invalid CSV Format",
+          description: `Missing columns: ${missingHeaders.join(', ')}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const questions = lines.slice(1)
+        .filter(line => line.trim())
+        .map((line, index) => {
+          const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+          const question: any = {};
+          
+          headers.forEach((header, i) => {
+            question[header] = values[i] || '';
+          });
+
+          // Format the data for the API
+          return {
+            examName: question.examName,
+            questionText: question.questionText,
+            options: [question.optionA, question.optionB, question.optionC, question.optionD],
+            correctAnswer: question.correctAnswer.toUpperCase(),
+            questionType: "multiple_choice",
+            difficulty: question.difficulty || "medium",
+            subject: question.subject,
+            topic: question.topic,
+            marks: parseInt(question.marks) || 1,
+          };
+        });
+
+      setImportPreview(questions);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportQuestions = () => {
+    if (importPreview.length === 0) {
+      toast({
+        title: "No Questions",
+        description: "Please upload a valid CSV file with questions",
+        variant: "destructive",
+      });
+      return;
+    }
+    bulkImportMutation.mutate(importPreview);
   };
 
   if (user?.role !== 'admin') {
@@ -410,7 +521,11 @@ export default function QuestionManagement() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Exam Questions ({questions.length})</CardTitle>
-                  <Button variant="outline" data-testid="button-bulk-import">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowImportModal(true)}
+                    data-testid="button-bulk-import"
+                  >
                     <i className="fas fa-upload mr-2"></i>Bulk Import
                   </Button>
                 </div>
@@ -473,6 +588,121 @@ export default function QuestionManagement() {
           </div>
         </div>
       </div>
+
+      {/* Bulk Import Modal */}
+      <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Bulk Import Questions</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Instructions */}
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-medium text-blue-900 mb-2">CSV Format Instructions</h4>
+              <p className="text-sm text-blue-800 mb-2">
+                Your CSV file should include these columns (in any order):
+              </p>
+              <code className="text-xs bg-white p-2 rounded block">
+                examName,questionText,optionA,optionB,optionC,optionD,correctAnswer,difficulty,subject,topic,marks
+              </code>
+              <div className="mt-2 text-xs text-blue-700">
+                <strong>correctAnswer:</strong> Use A, B, C, or D<br/>
+                <strong>difficulty:</strong> Use easy, medium, or hard<br/>
+                <strong>marks:</strong> Use numbers (1, 2, 3, etc.)
+              </div>
+            </div>
+
+            {/* File Upload */}
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Select CSV File
+              </label>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90"
+                data-testid="input-csv-file"
+              />
+            </div>
+
+            {/* Preview */}
+            {importPreview.length > 0 && (
+              <div>
+                <h4 className="font-medium mb-2">Preview ({importPreview.length} questions)</h4>
+                <div className="border rounded-lg max-h-60 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="p-2 text-left">Exam</th>
+                        <th className="p-2 text-left">Question</th>
+                        <th className="p-2 text-left">Options</th>
+                        <th className="p-2 text-left">Answer</th>
+                        <th className="p-2 text-left">Subject</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importPreview.slice(0, 10).map((q, index) => (
+                        <tr key={index} className="border-t">
+                          <td className="p-2">{q.examName}</td>
+                          <td className="p-2 max-w-xs truncate">{q.questionText}</td>
+                          <td className="p-2">
+                            {q.options.map((opt: string, i: number) => (
+                              <span key={i} className="text-xs">
+                                {String.fromCharCode(65 + i)}:{opt.substring(0, 10)}...{i < 3 && ' '}
+                              </span>
+                            ))}
+                          </td>
+                          <td className="p-2">{q.correctAnswer}</td>
+                          <td className="p-2">{q.subject}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {importPreview.length > 10 && (
+                    <div className="p-2 text-center text-gray-500 text-xs">
+                      ...and {importPreview.length - 10} more questions
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-end space-x-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportFile(null);
+                  setImportPreview([]);
+                }}
+                data-testid="button-cancel-import"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleImportQuestions}
+                disabled={importPreview.length === 0 || bulkImportMutation.isPending}
+                data-testid="button-confirm-import"
+              >
+                {bulkImportMutation.isPending ? (
+                  <>
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-check mr-2"></i>
+                    Import {importPreview.length} Questions
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

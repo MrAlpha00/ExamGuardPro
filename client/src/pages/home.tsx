@@ -135,6 +135,25 @@ export default function Home() {
                   </Link>
                 </CardContent>
               </Card>
+
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <i className="fas fa-question-circle text-primary"></i>
+                    <span>Exam Questions</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Create, import, and manage exam questions for all assessments.
+                  </p>
+                  <Link href="/admin/questions">
+                    <Button className="w-full" data-testid="link-questions">
+                      Manage Questions
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
             </>
           ) : (
             <>
