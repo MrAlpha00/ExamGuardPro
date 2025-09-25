@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import type { HallTicket } from "@shared/schema";
 import jsPDF from "jspdf";
 
@@ -16,6 +16,7 @@ export default function HallTicketGeneration() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   
   const [formData, setFormData] = useState({
     examName: "",
@@ -30,7 +31,7 @@ export default function HallTicketGeneration() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   // Fetch existing hall tickets
-  const { data: hallTickets = [], isLoading } = useQuery({
+  const { data: hallTickets = [], isLoading } = useQuery<HallTicket[]>({
     queryKey: ["/api/hall-tickets"],
   });
 
@@ -550,7 +551,7 @@ export default function HallTicketGeneration() {
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-muted-foreground">Created</Label>
-                      <p className="text-sm">{new Date(selectedTicket.createdAt).toLocaleDateString()}</p>
+                      <p className="text-sm">{selectedTicket.createdAt ? new Date(selectedTicket.createdAt).toLocaleDateString() : 'N/A'}</p>
                     </div>
                   </div>
                 </CardContent>
