@@ -41,6 +41,9 @@ export default function ExamMode() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const [warningCount, setWarningCount] = useState(0);
+  const [violationCount, setViolationCount] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [warningMessage, setWarningMessage] = useState("");
   
   const { isActive: cameraActive, startCamera } = useWebcam();
   const { faceDetected, multipleFaces, lookingAway, confidence } = useFaceDetection();
@@ -100,30 +103,208 @@ export default function ExamMode() {
     }
   };
 
-  // Handle fullscreen change
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+  // Enhanced security violation handler
+  const handleSecurityViolation = async (violationType: string, description: string, severity: "low" | "medium" | "high" | "critical" = "medium") => {
+    if (!examSession) return;
+
+    const newViolationCount = violationCount + 1;
+    setViolationCount(newViolationCount);
+    setWarningCount(prev => prev + 1);
+    
+    // Set warning message based on violation type
+    let warning = "";
+    if (violationType === "fullscreen_exit") {
+      warning = "⚠️ Please stay in fullscreen mode during the exam!";
+    } else if (violationType === "tab_switch") {
+      warning = "⚠️ Switching tabs is not allowed during the exam!";
+    } else if (violationType === "window_blur") {
+      warning = "⚠️ Please keep the exam window focused!";
+    } else if (violationType === "key_violation") {
+      warning = "⚠️ Restricted key combination detected!";
+    }
+    
+    setWarningMessage(warning);
+    setShowWarning(true);
+
+    // Auto-hide warning after 5 seconds
+    setTimeout(() => {
+      setShowWarning(false);
+      setWarningMessage("");
+    }, 5000);
+
+    // Create security incident
+    await createSecurityIncident({
+      sessionId: examSession.id,
+      incidentType: violationType,
+      severity: severity,
+      description: description,
+      metadata: { 
+        violationCount: newViolationCount,
+        warningCount: warningCount + 1,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    // Implement violation policy
+    if (newViolationCount === 1) {
+      // First violation: Auto-pause exam
+      setIsPaused(true);
+      toast({
+        title: "Exam Paused",
+        description: "Your exam has been paused due to a security violation. Click 'Resume' to continue.",
+        variant: "destructive",
+      });
       
-      // If user exits fullscreen, show warning
-      if (!document.fullscreenElement && examSession) {
-        setShowWarning(true);
-        setWarningCount(prev => prev + 1);
-        
-        // Create security incident
-        createSecurityIncident({
+      // Send WebSocket message to admin
+      sendMessage({
+        type: 'security_violation',
+        data: {
           sessionId: examSession.id,
-          incidentType: "fullscreen_exit",
-          severity: "medium",
-          description: "Student exited fullscreen mode",
-          metadata: { warningCount: warningCount + 1 }
-        });
+          violationType,
+          violationCount: newViolationCount,
+          action: 'paused'
+        }
+      });
+      
+    } else if (newViolationCount >= 3) {
+      // Three or more violations: Auto-submit exam
+      toast({
+        title: "Exam Auto-Submitted",
+        description: "Your exam has been automatically submitted due to multiple security violations.",
+        variant: "destructive",
+      });
+      
+      // Send WebSocket message to admin
+      sendMessage({
+        type: 'security_violation',
+        data: {
+          sessionId: examSession.id,
+          violationType,
+          violationCount: newViolationCount,
+          action: 'auto_submitted'
+        }
+      });
+      
+      // Auto-submit after 2 seconds
+      setTimeout(() => {
+        submitExam();
+      }, 2000);
+    } else {
+      // Second violation: Warning only
+      sendMessage({
+        type: 'security_violation',
+        data: {
+          sessionId: examSession.id,
+          violationType,
+          violationCount: newViolationCount,
+          action: 'warning'
+        }
+      });
+    }
+  };
+
+  // Enhanced fullscreen and security event handling
+  useEffect(() => {
+    if (!examSession) return;
+
+    // Fullscreen change handler
+    const handleFullscreenChange = () => {
+      const isNowFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(isNowFullscreen);
+      
+      // If user exits fullscreen during exam, handle violation
+      if (!isNowFullscreen) {
+        handleSecurityViolation("fullscreen_exit", "Student exited fullscreen mode", "medium");
+        
+        // Immediately try to re-enter fullscreen
+        setTimeout(() => {
+          if (!document.fullscreenElement && examSession) {
+            enterFullscreen();
+          }
+        }, 1000);
       }
     };
 
+    // Tab switching / window blur detection
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleSecurityViolation("tab_switch", "Student switched tabs or minimized window", "medium");
+      }
+    };
+
+    const handleWindowBlur = () => {
+      handleSecurityViolation("window_blur", "Student left the exam window", "medium");
+    };
+
+    // Enhanced keyboard event handling
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Block common exit combinations
+      const blockedKeys = [
+        'F11', // Toggle fullscreen
+        'Alt+Tab', // Switch apps
+        'Ctrl+Shift+I', // Dev tools
+        'F12', // Dev tools
+        'Ctrl+U', // View source
+        'Ctrl+Shift+C', // Inspect element
+        'Ctrl+Shift+J', // Console
+        'Ctrl+R', // Refresh
+        'F5', // Refresh
+        'Ctrl+N', // New window
+        'Ctrl+T', // New tab
+        'Ctrl+W', // Close tab
+      ];
+
+      // Check for ESC key specifically
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        handleSecurityViolation("key_violation", "Student attempted to use ESC key", "medium");
+        return false;
+      }
+
+      // Check for other blocked combinations
+      const combo = [
+        event.ctrlKey && 'Ctrl',
+        event.altKey && 'Alt', 
+        event.shiftKey && 'Shift',
+        event.key
+      ].filter(Boolean).join('+');
+
+      if (blockedKeys.includes(combo) || blockedKeys.includes(event.key)) {
+        event.preventDefault();
+        event.stopPropagation();
+        handleSecurityViolation("key_violation", `Student attempted to use blocked key: ${combo}`, "medium");
+        return false;
+      }
+    };
+
+    // Add event listeners
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, [examSession, warningCount]);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    document.addEventListener('keydown', handleKeyDown, { capture: true });
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      document.removeEventListener('keydown', handleKeyDown, { capture: true });
+    };
+  }, [examSession, violationCount, warningCount]);
+
+  // Resume exam function
+  const resumeExam = () => {
+    setIsPaused(false);
+    // Re-enter fullscreen if needed
+    if (!document.fullscreenElement) {
+      enterFullscreen();
+    }
+    toast({
+      title: "Exam Resumed",
+      description: "Your exam has been resumed. Please avoid further violations.",
+    });
+  };
 
   // Timer countdown
   useEffect(() => {
@@ -524,11 +705,13 @@ export default function ExamMode() {
         </div>
       </div>
 
-      {/* Warning Banner */}
+      {/* Enhanced Warning Banner */}
       {showWarning && (
         <div className="fixed top-0 left-0 right-0 bg-destructive text-destructive-foreground p-4 text-center font-semibold z-20">
           <i className="fas fa-exclamation-triangle mr-2"></i>
-          WARNING: {multipleFaces ? 'Multiple faces detected' : lookingAway ? 'Looking away detected' : 'Please face the camera'}.
+          {warningMessage || 
+            `WARNING: ${multipleFaces ? 'Multiple faces detected' : lookingAway ? 'Looking away detected' : 'Please face the camera'}.`
+          }
           <Button
             variant="secondary"
             size="sm"
@@ -539,6 +722,59 @@ export default function ExamMode() {
           </Button>
         </div>
       )}
+
+      {/* Exam Paused Overlay */}
+      {isPaused && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="bg-card p-8 rounded-xl shadow-2xl text-center max-w-md mx-4">
+            <div className="mb-6">
+              <i className="fas fa-pause-circle text-6xl text-yellow-500 mb-4"></i>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Exam Paused</h2>
+              <p className="text-muted-foreground mb-4">
+                Your exam has been paused due to a security violation.
+              </p>
+              <div className="bg-muted rounded-lg p-4 mb-6">
+                <p className="text-sm">
+                  <strong>Violations:</strong> {violationCount}/3
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {violationCount >= 2 
+                    ? "⚠️ One more violation will auto-submit your exam!" 
+                    : "Please avoid further violations to continue."
+                  }
+                </p>
+              </div>
+            </div>
+            <Button 
+              onClick={resumeExam}
+              size="lg"
+              className="w-full"
+              data-testid="button-resume"
+            >
+              <i className="fas fa-play mr-2"></i>
+              Resume Exam
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Enhanced Security Status Indicator */}
+      <div className="fixed bottom-4 left-4 bg-card/95 backdrop-blur border rounded-lg p-3 shadow-lg z-10">
+        <div className="text-xs space-y-1">
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${isFullscreen ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span>Fullscreen: {isFullscreen ? 'Active' : 'Inactive'}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${violationCount === 0 ? 'bg-green-500' : violationCount < 3 ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
+            <span>Violations: {violationCount}/3</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${faceDetected ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+            <span>Face: {faceDetected ? 'Detected' : 'Not Found'}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
