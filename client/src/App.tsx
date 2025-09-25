@@ -32,6 +32,7 @@ function Router() {
       
       {/* Student routes - always available (they guard themselves) */}
       <Route path="/student/auth" component={StudentAuthentication} />
+      <Route path="/hall-ticket" component={StudentAuthentication} />
       <Route path="/student/identity-verification" component={IdentityVerification} />
       <Route path="/student/exam" component={ExamMode} />
       <Route path="/exam-complete" component={ExamComplete} />
