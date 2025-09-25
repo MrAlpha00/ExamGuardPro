@@ -49,10 +49,12 @@ export default function ExamMode() {
   const { faceDetected, multipleFaces, lookingAway, confidence } = useFaceDetection(stream);
   const { sendMessage } = useWebSocket();
 
-  // Fetch questions for the current exam session
+  // Fetch questions for the current exam session (load immediately when session is set)
   const { data: questions = [], isLoading: questionsLoading } = useQuery<Question[]>({
     queryKey: ['/api/exam-sessions', examSession?.id, 'questions'],
     enabled: !!examSession?.id,
+    staleTime: 300000, // Cache for 5 minutes
+    gcTime: 600000, // Keep in cache for 10 minutes
   });
 
   // Initialize exam session
@@ -72,7 +74,6 @@ export default function ExamMode() {
       setExamSession(session);
       setTimeRemaining(session.timeRemaining);
       enterFullscreen();
-      startCamera();
     },
     onError: (error) => {
       toast({
@@ -488,7 +489,7 @@ export default function ExamMode() {
 
   // Create security incident
 
-  // Load hall ticket data on mount
+  // Load hall ticket data on mount and start camera immediately
   useEffect(() => {
     const storedData = localStorage.getItem("hallTicketData");
     const verificationComplete = localStorage.getItem("verificationComplete");
@@ -506,6 +507,10 @@ export default function ExamMode() {
     try {
       const data = JSON.parse(storedData);
       setHallTicketData(data);
+      
+      // Start camera immediately for faster activation
+      startCamera();
+      
       createSessionMutation.mutate(data.id);
     } catch (error) {
       toast({
@@ -515,7 +520,7 @@ export default function ExamMode() {
       });
       setLocation("/student/auth");
     }
-  }, []);
+  }, [startCamera]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
