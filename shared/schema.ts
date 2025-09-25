@@ -65,6 +65,7 @@ export const examSessions = pgTable("exam_sessions", {
   endTime: timestamp("end_time"),
   currentQuestion: integer("current_question").default(1),
   answers: jsonb("answers").default({}),
+  questionIds: jsonb("question_ids").default([]), // array of question UUIDs for this session
   timeRemaining: integer("time_remaining"), // in seconds
   isVerified: boolean("is_verified").default(false),
   verificationData: jsonb("verification_data"), // photos, ID verification results
