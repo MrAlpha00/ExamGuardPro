@@ -523,6 +523,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
+        // Handle security violations from students
+        if (data.type === 'security_violation' || data.type === 'face_violation') {
+          try {
+            // Validate required fields for incident creation
+            if (!data.data.sessionId || !data.data.incidentType || !data.data.severity || !data.data.description) {
+              console.error('Invalid violation data: missing required fields (sessionId, incidentType, severity, description)');
+              return;
+            }
+            
+            // Validate sender is a student
+            if (ws.type !== 'student') {
+              console.error('Unauthorized: Only students can report violations');
+              return;
+            }
+            
+            // Validate session exists and belongs to the student
+            const session = await storage.getExamSession(data.data.sessionId);
+            if (!session) {
+              console.error(`Session ${data.data.sessionId} not found`);
+              return;
+            }
+            
+            // Rate limiting: check for recent incidents to prevent spam
+            const recentIncidents = await storage.getSecurityIncidents(data.data.sessionId);
+            const oneMinuteAgo = new Date(Date.now() - 60000);
+            const recentSameType = recentIncidents.filter(incident => 
+              incident.incidentType === data.data.incidentType && 
+              new Date(incident.createdAt) > oneMinuteAgo
+            );
+            
+            if (recentSameType.length >= 3) {
+              console.log(`Rate limited: Too many ${data.data.incidentType} incidents for session ${data.data.sessionId}`);
+              return;
+            }
+            
+            // Create security incident
+            const incident = await storage.createSecurityIncident({
+              sessionId: data.data.sessionId,
+              incidentType: data.data.incidentType,
+              severity: data.data.severity,
+              description: data.data.description,
+              metadata: data.data.metadata || {}
+            });
+            
+            // Broadcast to admin clients
+            wss.clients.forEach((client: WebSocketClient) => {
+              if (client.readyState === WebSocket.OPEN && client.type === 'admin') {
+                client.send(JSON.stringify({
+                  type: 'security_incident',
+                  data: {
+                    ...incident,
+                    studentName: data.data.studentName,
+                    rollNumber: data.data.rollNumber,
+                    violationType: data.data.incidentType // Use actual incident type, not message type
+                  }
+                }));
+              }
+            });
+            
+            console.log(`Security incident created: ${data.data.incidentType} for session ${data.data.sessionId}`);
+          } catch (error) {
+            console.error('Error creating security incident:', error);
+          }
+        }
+        
+        // Handle student status updates (lightweight monitoring)
+        if (data.type === 'student_status') {
+          try {
+            // Broadcast to admin clients
+            wss.clients.forEach((client: WebSocketClient) => {
+              if (client.readyState === WebSocket.OPEN && client.type === 'admin') {
+                client.send(JSON.stringify({
+                  type: 'student_monitoring',
+                  data: data.data
+                }));
+              }
+            });
+          } catch (error) {
+            console.error('Error handling student status:', error);
+          }
+        }
+        
+        // Handle policy updates (exam paused/auto-submitted) - separate from incidents
+        if (data.type === 'policy_update') {
+          try {
+            // Validate basic required fields
+            if (!data.data.sessionId || !data.data.action) {
+              console.error('Invalid policy update: missing sessionId or action');
+              return;
+            }
+            
+            // Broadcast policy update to admin clients
+            wss.clients.forEach((client: WebSocketClient) => {
+              if (client.readyState === WebSocket.OPEN && client.type === 'admin') {
+                client.send(JSON.stringify({
+                  type: 'policy_update',
+                  data: data.data
+                }));
+              }
+            });
+            
+            console.log(`Policy update: ${data.data.action} for session ${data.data.sessionId}`);
+          } catch (error) {
+            console.error('Error handling policy update:', error);
+          }
+        }
+        
       } catch (error) {
         console.error('WebSocket message error:', error);
       }

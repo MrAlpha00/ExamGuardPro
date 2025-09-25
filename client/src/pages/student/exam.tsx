@@ -132,16 +132,22 @@ export default function ExamMode() {
       setWarningMessage("");
     }, 5000);
 
-    // Create security incident
-    await createSecurityIncident({
-      sessionId: examSession.id,
-      incidentType: violationType,
-      severity: severity,
-      description: description,
-      metadata: { 
-        violationCount: newViolationCount,
-        warningCount: warningCount + 1,
-        timestamp: new Date().toISOString()
+    // Send violation event to server via WebSocket
+    sendMessage({
+      type: 'security_violation',
+      data: {
+        sessionId: examSession.id,
+        studentId: user?.id,
+        studentName: hallTicketData?.studentName,
+        rollNumber: hallTicketData?.rollNumber,
+        incidentType: violationType,
+        severity: severity,
+        description: description,
+        metadata: { 
+          violationCount: newViolationCount,
+          warningCount: warningCount + 1,
+          timestamp: new Date().toISOString()
+        }
       }
     });
 
@@ -155,14 +161,18 @@ export default function ExamMode() {
         variant: "destructive",
       });
       
-      // Send WebSocket message to admin
+      // Send policy update to admin (separate from incident creation)
       sendMessage({
-        type: 'security_violation',
+        type: 'policy_update',
         data: {
           sessionId: examSession.id,
+          studentId: user?.id,
+          studentName: hallTicketData?.studentName,
+          rollNumber: hallTicketData?.rollNumber,
+          action: 'paused',
           violationType,
           violationCount: newViolationCount,
-          action: 'paused'
+          timestamp: new Date().toISOString()
         }
       });
       
@@ -174,14 +184,18 @@ export default function ExamMode() {
         variant: "destructive",
       });
       
-      // Send WebSocket message to admin
+      // Send policy update to admin (separate from incident creation)
       sendMessage({
-        type: 'security_violation',
+        type: 'policy_update',
         data: {
           sessionId: examSession.id,
+          studentId: user?.id,
+          studentName: hallTicketData?.studentName,
+          rollNumber: hallTicketData?.rollNumber,
+          action: 'auto_submitted',
           violationType,
           violationCount: newViolationCount,
-          action: 'auto_submitted'
+          timestamp: new Date().toISOString()
         }
       });
       
@@ -190,14 +204,18 @@ export default function ExamMode() {
         submitExam();
       }, 2000);
     } else {
-      // Second violation: Warning only
+      // Second violation: Warning only (status update, not incident)
       sendMessage({
-        type: 'security_violation',
+        type: 'student_status',
         data: {
           sessionId: examSession.id,
+          studentId: user?.id,
+          studentName: hallTicketData?.studentName,
+          rollNumber: hallTicketData?.rollNumber,
           violationType,
           violationCount: newViolationCount,
-          action: 'warning'
+          action: 'warning',
+          timestamp: new Date().toISOString()
         }
       });
     }
@@ -334,28 +352,21 @@ export default function ExamMode() {
 
     const handleFaceViolation = async (violationType: string, description: string, severity: string) => {
       try {
-        // Create security incident via API (without large snapshots)
-        await apiRequest("POST", "/api/security-incidents", {
-          sessionId: examSession.id,
-          incidentType: violationType,
-          severity: severity,
-          description: description,
-          metadata: { 
-            confidence, 
-            timestamp: new Date().toISOString()
-          }
-        });
-
-        // Send lightweight alert to admin (no snapshot in WebSocket)
+        // Send face violation event to server via WebSocket (server will create incident)
         sendMessage({
           type: 'face_violation',
           data: {
             sessionId: examSession.id,
             studentId: examSession.studentId,
-            violationType,
-            description,
-            confidence,
-            timestamp: new Date().toISOString()
+            studentName: hallTicketData?.studentName,
+            rollNumber: hallTicketData?.rollNumber,
+            incidentType: violationType,
+            severity: severity,
+            description: description,
+            metadata: { 
+              confidence, 
+              timestamp: new Date().toISOString()
+            }
           }
         });
       } catch (error) {
@@ -451,24 +462,6 @@ export default function ExamMode() {
   }, [multipleFaces, lookingAway, faceDetected, examSession, cameraActive, confidence, lookAwayCount, multipleFaceCount, lastSnapshotTime]);
 
   // Create security incident
-  const createSecurityIncident = async (incident: any) => {
-    try {
-      await apiRequest("POST", "/api/security-incidents", incident);
-      
-      // Send WebSocket message to admin
-      sendMessage({
-        type: 'security_incident',
-        data: {
-          studentId: user?.id,
-          studentName: hallTicketData?.studentName,
-          rollNumber: hallTicketData?.rollNumber,
-          ...incident
-        }
-      });
-    } catch (error) {
-      console.error("Failed to create security incident:", error);
-    }
-  };
 
   // Load hall ticket data on mount
   useEffect(() => {
