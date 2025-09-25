@@ -254,8 +254,21 @@ export default function ExamMode() {
       handleSecurityViolation("window_blur", "Student left the exam window", "medium");
     };
 
-    // Enhanced keyboard event handling
+    // Enhanced keyboard event handling with robust ESC blocking
+    const blockEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' || event.keyCode === 27 || event.which === 27) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        handleSecurityViolation("key_violation", "Student attempted to use ESC key", "medium");
+        return false;
+      }
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Block ESC key with maximum priority
+      if (blockEscKey(event) === false) return false;
+
       // Block common exit combinations
       const blockedKeys = [
         'F11', // Toggle fullscreen
@@ -271,14 +284,6 @@ export default function ExamMode() {
         'Ctrl+T', // New tab
         'Ctrl+W', // Close tab
       ];
-
-      // Check for ESC key specifically
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        event.stopPropagation();
-        handleSecurityViolation("key_violation", "Student attempted to use ESC key", "medium");
-        return false;
-      }
 
       // Check for other blocked combinations
       const combo = [
@@ -296,18 +301,38 @@ export default function ExamMode() {
       }
     };
 
-    // Add event listeners
+    const handleKeyUp = (event: KeyboardEvent) => {
+      blockEscKey(event);
+    };
+
+    const handleKeyPress = (event: KeyboardEvent) => {
+      blockEscKey(event);
+    };
+
+    // Add event listeners with multiple layers of ESC blocking
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleWindowBlur);
+    
+    // Multiple layers of ESC key blocking for maximum security
     document.addEventListener('keydown', handleKeyDown, { capture: true });
+    document.addEventListener('keyup', handleKeyUp, { capture: true });
+    document.addEventListener('keypress', handleKeyPress, { capture: true });
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    window.addEventListener('keyup', handleKeyUp, { capture: true });
 
     // Cleanup
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
+      
+      // Remove all ESC blocking event listeners
       document.removeEventListener('keydown', handleKeyDown, { capture: true });
+      document.removeEventListener('keyup', handleKeyUp, { capture: true });
+      document.removeEventListener('keypress', handleKeyPress, { capture: true });
+      window.removeEventListener('keydown', handleKeyDown, { capture: true });
+      window.removeEventListener('keyup', handleKeyUp, { capture: true });
     };
   }, [examSession, violationCount, warningCount]);
 
