@@ -13,6 +13,7 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 
 interface HallTicketData {
   id: string;
+  hallTicketId: string;
   examName: string;
   studentName: string;
   rollNumber: string;
@@ -24,8 +25,8 @@ interface Question {
   id: string;
   questionText: string;
   options: string[];
-  correctAnswer: string;
   questionType: string;
+  marks: number;
 }
 
 export default function ExamMode() {
@@ -45,24 +46,11 @@ export default function ExamMode() {
   const { faceDetected, multipleFaces, lookingAway, confidence } = useFaceDetection();
   const { sendMessage } = useWebSocket();
 
-  // Sample questions (in a real app, these would come from the API)
-  const questions: Question[] = [
-    {
-      id: "1",
-      questionText: "What is the time complexity of searching for an element in a balanced binary search tree?",
-      options: ["O(1)", "O(log n)", "O(n)", "O(n²)"],
-      correctAnswer: "B",
-      questionType: "multiple_choice"
-    },
-    {
-      id: "2", 
-      questionText: "Which of the following is NOT a principle of object-oriented programming?",
-      options: ["Encapsulation", "Inheritance", "Polymorphism", "Compilation"],
-      correctAnswer: "D",
-      questionType: "multiple_choice"
-    },
-    // Add more questions as needed
-  ];
+  // Fetch questions for the current exam session
+  const { data: questions = [], isLoading: questionsLoading } = useQuery<Question[]>({
+    queryKey: ['/api/exam-sessions', examSession?.id, 'questions'],
+    enabled: !!examSession?.id,
+  });
 
   // Initialize exam session
   const createSessionMutation = useMutation({
@@ -248,34 +236,39 @@ export default function ExamMode() {
     }
   };
 
-  const submitExam = async () => {
-    if (!examSession) return;
-    
-    try {
-      await apiRequest("PATCH", `/api/exam-sessions/${examSession.id}`, {
-        status: "completed",
-        endTime: new Date().toISOString(),
-        answers,
-        timeRemaining
-      });
+  // Submit exam mutation
+  const submitExamMutation = useMutation({
+    mutationFn: async () => {
+      if (!examSession) throw new Error("No exam session found");
       
+      const response = await apiRequest("POST", `/api/exam-sessions/${examSession.id}/submit`, {
+        answers
+      });
+      return response.json();
+    },
+    onSuccess: () => {
       toast({
         title: "Exam Submitted",
         description: "Your exam has been submitted successfully",
       });
       
       // Exit fullscreen and clean up
-      await exitFullscreen();
+      exitFullscreen();
       localStorage.removeItem("hallTicketData");
       localStorage.removeItem("verificationComplete");
-      setLocation("/");
-    } catch (error) {
+      setLocation("/exam-complete");
+    },
+    onError: (error) => {
       toast({
         title: "Submission Failed",
-        description: "Failed to submit exam. Please try again.",
+        description: error.message || "Failed to submit exam. Please try again.",
         variant: "destructive",
       });
     }
+  });
+
+  const submitExam = () => {
+    submitExamMutation.mutate();
   };
 
   if (!hallTicketData || !examSession) {

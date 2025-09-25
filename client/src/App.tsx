@@ -20,6 +20,7 @@ import Results from "@/pages/admin/results";
 import StudentAuthentication from "@/pages/student/authentication";
 import IdentityVerification from "@/pages/student/identity-verification";
 import ExamMode from "@/pages/student/exam";
+import ExamComplete from "@/pages/student/exam-complete";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/student/auth" component={StudentAuthentication} />
       <Route path="/student/identity-verification" component={IdentityVerification} />
       <Route path="/student/exam" component={ExamMode} />
+      <Route path="/exam-complete" component={ExamComplete} />
       
       {/* Admin routes - protected by auth */}
       {isAuthenticated && (

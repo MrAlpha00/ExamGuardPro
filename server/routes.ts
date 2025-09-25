@@ -214,7 +214,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(existingSession);
       }
 
-      const examSession = await storage.createExamSession(data);
+      // Get randomized questions for this exam
+      const examQuestions = await storage.getRandomQuestions(hallTicket.examName, hallTicket.totalQuestions);
+      const questionIds = examQuestions.map(q => q.id);
+
+      // Add questionIds to the session data
+      const sessionDataWithQuestions = {
+        ...data,
+        questionIds: questionIds
+      };
+
+      const examSession = await storage.createExamSession(sessionDataWithQuestions);
 
       res.json(examSession);
     } catch (error) {
@@ -249,6 +259,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating exam session:", error);
       res.status(500).json({ message: "Failed to update exam session" });
+    }
+  });
+
+  // Get questions for a specific exam session (no auth required - students use hall tickets)
+  app.get('/api/exam-sessions/:id/questions', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const session = await storage.getExamSession(id);
+      
+      if (!session) {
+        return res.status(404).json({ message: "Exam session not found" });
+      }
+
+      // Get the questions based on the session's questionIds
+      const questionIds = session.questionIds as string[];
+      if (!questionIds || !Array.isArray(questionIds) || questionIds.length === 0) {
+        return res.json([]); // Return empty array if no questions assigned
+      }
+
+      // Fetch questions but don't return correct answers to students
+      const allQuestions = await storage.getAllQuestions();
+      const sessionQuestions = allQuestions
+        .filter(q => questionIds.includes(q.id))
+        .map(q => ({
+          id: q.id,
+          questionText: q.questionText,
+          options: q.options,
+          questionType: q.questionType,
+          marks: q.marks
+          // Exclude correctAnswer for security
+        }));
+
+      res.json(sessionQuestions);
+    } catch (error) {
+      console.error("Error fetching session questions:", error);
+      res.status(500).json({ message: "Failed to fetch session questions" });
+    }
+  });
+
+  // Submit exam session
+  app.post('/api/exam-sessions/:id/submit', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { answers } = req.body;
+      
+      const session = await storage.getExamSession(id);
+      if (!session) {
+        return res.status(404).json({ message: "Exam session not found" });
+      }
+
+      // Update session with final answers and mark as submitted
+      const updatedSession = await storage.updateExamSession(id, {
+        answers: answers,
+        status: 'submitted',
+        endTime: new Date()
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Exam submitted successfully",
+        session: updatedSession 
+      });
+    } catch (error) {
+      console.error("Error submitting exam:", error);
+      res.status(500).json({ message: "Failed to submit exam" });
     }
   });
 
