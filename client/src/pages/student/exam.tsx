@@ -45,8 +45,8 @@ export default function ExamMode() {
   const [isPaused, setIsPaused] = useState(false);
   const [warningMessage, setWarningMessage] = useState("");
   
-  const { isActive: cameraActive, startCamera } = useWebcam();
-  const { faceDetected, multipleFaces, lookingAway, confidence } = useFaceDetection();
+  const { isActive: cameraActive, startCamera, stopCamera, stream, error: cameraError, capturePhoto } = useWebcam();
+  const { faceDetected, multipleFaces, lookingAway, confidence } = useFaceDetection(stream);
   const { sendMessage } = useWebSocket();
 
   // Fetch questions for the current exam session
@@ -324,30 +324,131 @@ export default function ExamMode() {
     }
   }, [timeRemaining, examSession]);
 
-  // Monitor face detection
+  // Enhanced face detection monitoring with thresholds
+  const [lookAwayCount, setLookAwayCount] = useState(0);
+  const [multipleFaceCount, setMultipleFaceCount] = useState(0);
+  const [lastSnapshotTime, setLastSnapshotTime] = useState(0);
+
   useEffect(() => {
     if (!examSession || !cameraActive) return;
 
-    if (multipleFaces) {
-      setShowWarning(true);
-      createSecurityIncident({
-        sessionId: examSession.id,
-        incidentType: "multiple_faces",
-        severity: "critical",
-        description: "Multiple faces detected",
-        metadata: { confidence, faceCount: 2 }
-      });
-    } else if (lookingAway) {
-      setShowWarning(true);
-      createSecurityIncident({
-        sessionId: examSession.id,
-        incidentType: "looking_away",
-        severity: "medium",
-        description: "Student looking away from camera",
-        metadata: { duration: 5, confidence }
-      });
-    }
-  }, [multipleFaces, lookingAway, examSession, cameraActive]);
+    const handleFaceViolation = async (violationType: string, description: string, severity: string) => {
+      try {
+        // Create security incident via API (without large snapshots)
+        await apiRequest("POST", "/api/security-incidents", {
+          sessionId: examSession.id,
+          incidentType: violationType,
+          severity: severity,
+          description: description,
+          metadata: { 
+            confidence, 
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        // Send lightweight alert to admin (no snapshot in WebSocket)
+        sendMessage({
+          type: 'face_violation',
+          data: {
+            sessionId: examSession.id,
+            studentId: examSession.studentId,
+            violationType,
+            description,
+            confidence,
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch (error) {
+        console.error('Face violation handling error:', error);
+      }
+    };
+
+    const handleMonitoring = async () => {
+      if (multipleFaces) {
+        const newCount = multipleFaceCount + 1;
+        setMultipleFaceCount(newCount);
+        
+        // Immediate critical alert for multiple faces
+        await handleFaceViolation(
+          "multiple_faces", 
+          `Multiple faces detected (occurrence ${newCount})`,
+          "critical"
+        );
+        
+        setShowWarning(true);
+        setWarningMessage("⚠️ Multiple faces detected! Only the exam taker should be visible.");
+        
+      } else if (lookingAway) {
+        const newCount = lookAwayCount + 1;
+        setLookAwayCount(newCount);
+        
+        // Progressive warnings based on count
+        if (newCount === 1) {
+          setShowWarning(true);
+          setWarningMessage("⚠️ Please look at the camera during the exam.");
+        } else if (newCount === 3) {
+          // After 3 look-away detections, send alert to admin
+          await handleFaceViolation(
+            "looking_away_repeated", 
+            `Student repeatedly looking away (${newCount} times)`,
+            "high"
+          );
+          
+          setShowWarning(true);
+          setWarningMessage("⚠️ FINAL WARNING: Keep your eyes on the screen. Admin has been notified.");
+          
+        } else if (newCount > 3) {
+          // Continue logging but don't overwhelm with alerts
+          try {
+            await apiRequest("POST", "/api/security-incidents", {
+              sessionId: examSession.id,
+              incidentType: "looking_away",
+              severity: "medium",
+              description: `Student looking away (occurrence ${newCount})`,
+              metadata: { confidence, count: newCount }
+            });
+          } catch (error) {
+            console.error('Security incident creation error:', error);
+          }
+        }
+      } else {
+        // Reset look away counter when face is properly detected
+        if (faceDetected && lookAwayCount > 0) {
+          setLookAwayCount(0);
+        }
+      }
+
+      // Send lightweight status updates to admin (every 10 seconds when camera is active)
+      const now = Date.now();
+      if (faceDetected && now - lastSnapshotTime > 10000) {
+        setLastSnapshotTime(now);
+        try {
+          sendMessage({
+            type: 'student_status',
+            data: {
+              sessionId: examSession.id,
+              studentId: examSession.studentId,
+              timestamp: new Date().toISOString(),
+              status: {
+                faceDetected,
+                multipleFaces,
+                lookingAway,
+                confidence,
+                violationCount,
+                lookAwayCount
+              }
+            }
+          });
+        } catch (error) {
+          console.error('Status update error:', error);
+        }
+      }
+    };
+
+    // Execute monitoring logic
+    handleMonitoring();
+
+  }, [multipleFaces, lookingAway, faceDetected, examSession, cameraActive, confidence, lookAwayCount, multipleFaceCount, lastSnapshotTime]);
 
   // Create security incident
   const createSecurityIncident = async (incident: any) => {
@@ -692,17 +793,36 @@ export default function ExamMode() {
         </div>
       </div>
 
-      {/* Live Camera Feed (Floating) */}
-      <div className="fixed top-20 right-6 w-64 h-48 bg-black rounded-lg overflow-hidden shadow-xl border-2 border-primary z-10">
-        <WebcamMonitor />
-        <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs">
-          ● REC
+      {/* Enhanced Live Camera Feed (Bottom-right corner) */}
+      <div className="fixed bottom-4 right-4 w-72 h-52 bg-black rounded-lg overflow-hidden shadow-xl border-2 border-primary z-10">
+        <WebcamMonitor 
+          stream={stream}
+          isActive={cameraActive}
+          error={cameraError}
+          onStartCamera={startCamera}
+          onStopCamera={stopCamera}
+          className="w-full h-full"
+        />
+        <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-mono">
+          ● LIVE
         </div>
-        <div className={`absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs ${
-          faceDetected ? 'pulse-green' : ''
+        <div className={`absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs transition-colors ${
+          faceDetected ? 'bg-green-600/70' : 'bg-red-600/70'
         }`}>
           Face: {faceDetected ? '✓' : '✗'}
         </div>
+        <div className="absolute bottom-2 left-2 right-2">
+          <div className="bg-black/70 text-white px-2 py-1 rounded text-xs text-center">
+            {cameraActive ? 'Monitoring Active' : 'Camera Inactive'}
+          </div>
+        </div>
+        {multipleFaces && (
+          <div className="absolute inset-0 bg-red-600/20 border-2 border-red-500 animate-pulse">
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white px-3 py-1 rounded font-bold text-sm">
+              MULTIPLE FACES!
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Enhanced Warning Banner */}
