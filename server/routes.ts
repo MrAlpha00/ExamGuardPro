@@ -471,6 +471,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Security incident routes
+  app.get('/api/security-incidents', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const incidents = await storage.getSecurityIncidents();
+      res.json(incidents);
+    } catch (error) {
+      console.error("Error fetching security incidents:", error);
+      res.status(500).json({ message: "Failed to fetch security incidents" });
+    }
+  });
+
+  app.patch('/api/security-incidents/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const user = await storage.getUser(req.user.claims.sub);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const updates = req.body;
+      // Add resolvedAt timestamp on the server side to avoid serialization issues
+      if (updates.isResolved) {
+        updates.resolvedAt = new Date();
+      }
+      const updatedIncident = await storage.updateSecurityIncident(id, updates);
+      res.json(updatedIncident);
+    } catch (error) {
+      console.error("Error updating security incident:", error);
+      res.status(500).json({ message: "Failed to update security incident" });
+    }
+  });
+
   // Question management routes
   app.post('/api/questions', isAuthenticated, async (req: any, res) => {
     try {

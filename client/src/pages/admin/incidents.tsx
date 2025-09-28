@@ -36,7 +36,7 @@ export default function IncidentManagement() {
       const response = await apiRequest("PATCH", `/api/security-incidents/${id}`, {
         isResolved: true,
         resolvedBy: user?.id,
-        resolvedAt: new Date().toISOString(),
+        // Let the database handle the timestamp - avoid client-side Date object
         resolutionAction: action
       });
       return response.json();
@@ -85,8 +85,8 @@ export default function IncidentManagement() {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical': return 'destructive';
-      case 'high': return 'orange';
-      case 'medium': return 'yellow';
+      case 'high': return 'destructive';
+      case 'medium': return 'secondary';
       default: return 'secondary';
     }
   };
