@@ -169,6 +169,13 @@ export class DatabaseStorage implements IStorage {
     return session;
   }
 
+  async getAllExamSessions(): Promise<ExamSession[]> {
+    return await db
+      .select()
+      .from(examSessions)
+      .orderBy(desc(examSessions.startTime));
+  }
+
   async getActiveExamSessions(): Promise<ExamSession[]> {
     return await db
       .select()

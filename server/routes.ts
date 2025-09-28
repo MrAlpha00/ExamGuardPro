@@ -441,6 +441,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/exam-sessions', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const sessions = await storage.getAllExamSessions();
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching exam sessions:", error);
+      res.status(500).json({ message: "Failed to fetch exam sessions" });
+    }
+  });
+
   app.get('/api/active-sessions', isAuthenticated, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
