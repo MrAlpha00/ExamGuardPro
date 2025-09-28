@@ -50,12 +50,39 @@ export default function ExamMode() {
   const { sendMessage } = useWebSocket();
 
   // Fetch questions for the current exam session (load immediately when session is set)
-  const { data: questions = [], isLoading: questionsLoading } = useQuery<Question[]>({
+  const { 
+    data: questions, 
+    isLoading: questionsLoading, 
+    error: questionsError 
+  } = useQuery<Question[]>({
     queryKey: ['/api/exam-sessions', examSession?.id, 'questions'],
     enabled: !!examSession?.id,
     staleTime: 300000, // Cache for 5 minutes
     gcTime: 600000, // Keep in cache for 10 minutes
+    retry: 2, // Retry failed requests twice
   });
+
+  // Handle questions loading errors and empty states
+  useEffect(() => {
+    if (questionsError) {
+      console.error("Questions loading error:", questionsError);
+      toast({
+        title: "Questions Loading Failed",
+        description: "Failed to load exam questions. Please try refreshing the page.",
+        variant: "destructive",
+      });
+    } else if (questions && questions.length === 0 && !questionsLoading) {
+      // Questions loaded successfully but empty - show error state
+      toast({
+        title: "No Questions Available",
+        description: "This exam has no questions assigned. Please contact your administrator.",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        setLocation("/student/auth");
+      }, 3000);
+    }
+  }, [questionsError, questions, questionsLoading, toast, setLocation]);
 
   // Initialize exam session
   const createSessionMutation = useMutation({
@@ -72,15 +99,32 @@ export default function ExamMode() {
     },
     onSuccess: (session) => {
       setExamSession(session);
+      // Don't start timer yet - wait for questions to load
       setTimeRemaining(session.timeRemaining);
       enterFullscreen();
     },
-    onError: (error) => {
-      toast({
-        title: "Session Error",
-        description: error.message,
-        variant: "destructive",
-      });
+    onError: (error: any) => {
+      console.error("Session creation error:", error);
+      
+      // Handle specific error cases
+      if (error.message?.includes("No questions found")) {
+        toast({
+          title: "Exam Not Available",
+          description: "This exam has no questions configured. Please contact your administrator.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Session Error", 
+          description: error.message || "Failed to initialize exam session",
+          variant: "destructive",
+        });
+      }
+      
+      // Redirect back to auth page after error
+      setTimeout(() => {
+        setLocation("/student/auth");
+      }, 3000);
     },
   });
 
@@ -350,9 +394,10 @@ export default function ExamMode() {
     });
   };
 
-  // Timer countdown
+  // Timer countdown - only start when questions are loaded
   useEffect(() => {
-    if (timeRemaining > 0 && examSession) {
+    const questionsLoaded = questions && questions.length > 0;
+    if (timeRemaining > 0 && examSession && questionsLoaded) {
       const timer = setInterval(() => {
         setTimeRemaining(prev => {
           if (prev <= 1) {
@@ -366,7 +411,7 @@ export default function ExamMode() {
 
       return () => clearInterval(timer);
     }
-  }, [timeRemaining, examSession]);
+  }, [timeRemaining, examSession, questions]);
 
   // Enhanced face detection monitoring with thresholds
   const [lookAwayCount, setLookAwayCount] = useState(0);
@@ -534,9 +579,10 @@ export default function ExamMode() {
   };
 
   const navigateQuestion = (direction: 'prev' | 'next') => {
+    const questionsLength = questions?.length || 0;
     if (direction === 'prev' && currentQuestion > 1) {
       setCurrentQuestion(prev => prev - 1);
-    } else if (direction === 'next' && currentQuestion < questions.length) {
+    } else if (direction === 'next' && currentQuestion < questionsLength) {
       setCurrentQuestion(prev => prev + 1);
     }
   };
@@ -587,10 +633,12 @@ export default function ExamMode() {
     );
   }
 
-  const currentQuestionData = questions[currentQuestion - 1];
+  // Safe access to questions array
+  const questionsArray = questions || [];
+  const currentQuestionData = questionsArray[currentQuestion - 1];
 
   // Show loading while questions are being fetched
-  if (questionsLoading || !currentQuestionData) {
+  if (questionsLoading || !currentQuestionData || questionsArray.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -644,7 +692,7 @@ export default function ExamMode() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-4">
                 <span className="bg-primary text-primary-foreground px-4 py-2 rounded-full font-semibold">
-                  Question {currentQuestion} of {questions.length}
+                  Question {currentQuestion} of {questionsArray.length}
                 </span>
                 <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm">
                   Multiple Choice
@@ -664,7 +712,7 @@ export default function ExamMode() {
               </h2>
               
               <div className="space-y-4 mt-6">
-                {currentQuestionData.options.map((option, index) => {
+                {currentQuestionData.options.map((option: string, index: number) => {
                   const optionLetter = String.fromCharCode(65 + index); // A, B, C, D
                   const isSelected = answers[currentQuestion] === optionLetter;
                   
@@ -763,7 +811,7 @@ export default function ExamMode() {
             
             {/* Question Grid */}
             <div className="grid grid-cols-5 gap-2">
-              {questions.map((_, index) => {
+              {questionsArray.map((_: Question, index: number) => {
                 const questionNum = index + 1;
                 const isAnswered = answers[questionNum];
                 const isCurrent = currentQuestion === questionNum;

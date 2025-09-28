@@ -216,6 +216,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get randomized questions for this exam
       const examQuestions = await storage.getRandomQuestions(hallTicket.examName, hallTicket.totalQuestions);
+      
+      // Check if we have questions for this exam
+      if (!examQuestions || examQuestions.length === 0) {
+        return res.status(400).json({ 
+          message: `No questions found for exam: ${hallTicket.examName}. Please contact the administrator.`,
+          error: "NO_QUESTIONS"
+        });
+      }
+      
       const questionIds = examQuestions.map(q => q.id);
 
       // Add questionIds to the session data
@@ -275,7 +284,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get the questions based on the session's questionIds
       const questionIds = session.questionIds as string[];
       if (!questionIds || !Array.isArray(questionIds) || questionIds.length === 0) {
-        return res.json([]); // Return empty array if no questions assigned
+        return res.status(400).json({ 
+          message: "No questions assigned to this exam session",
+          error: "NO_QUESTIONS_ASSIGNED"
+        });
       }
 
       // Fetch questions but don't return correct answers to students
