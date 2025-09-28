@@ -763,7 +763,7 @@ export default function ExamMode() {
                 >
                   <i className="fas fa-bookmark mr-2"></i>Save & Mark
                 </Button>
-                {currentQuestion < questions.length ? (
+                {questions && currentQuestion < questions.length ? (
                   <Button
                     onClick={() => navigateQuestion('next')}
                     data-testid="button-next"
@@ -843,17 +843,17 @@ export default function ExamMode() {
               <div className="flex justify-between">
                 <span>Answered:</span>
                 <span className="font-medium text-green-600">
-                  {Object.keys(answers).length}/{questions.length}
+                  {Object.keys(answers).length}/{questions?.length || 0}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>Marked:</span>
-                <span className="font-medium text-yellow-600">0/{questions.length}</span>
+                <span className="font-medium text-yellow-600">0/{questions?.length || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span>Not Visited:</span>
                 <span className="font-medium text-muted-foreground">
-                  {questions.length - Math.max(...Object.keys(answers).map(Number), 0)}/{questions.length}
+                  {(questions?.length || 0) - Math.max(...Object.keys(answers).map(Number), 0)}/{questions?.length || 0}
                 </span>
               </div>
             </div>
