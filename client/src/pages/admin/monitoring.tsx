@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import WebcamMonitor from "@/components/webcam-monitor";
 import type { ExamSession } from "@shared/schema";
 
 interface StudentMonitoring {
@@ -21,6 +22,8 @@ interface StudentMonitoring {
   progress: number;
   timeRemaining: number;
   lastActivity: string;
+  cameraStream?: MediaStream | null;
+  examSessionId?: string;
 }
 
 export default function MonitoringSystem() {
@@ -87,24 +90,27 @@ export default function MonitoringSystem() {
     }
   }, [user, sendMessage]);
 
-  // Mock monitoring data from active sessions (in real app, this would come from WebSocket)
+  // Convert active sessions to monitoring data with default values
   useEffect(() => {
     if (activeSessions.length > 0) {
-      const mockData = activeSessions.map(session => ({
+      const sessionData = activeSessions.map(session => ({
         id: session.id,
-        name: `Student ${session.studentId?.slice(-4)}`,
-        rollNumber: `CS21B${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`,
-        status: Math.random() > 0.8 ? (Math.random() > 0.5 ? 'warning' : 'alert') : 'normal',
-        faceDetected: Math.random() > 0.1,
-        multipleFaces: Math.random() > 0.95,
-        lookingAway: Math.random() > 0.85,
-        confidence: Math.random() * 0.4 + 0.6,
+        name: session.studentId?.includes('student_') ? 
+              session.studentId.replace('student_', '') : 
+              `Student ${session.studentId?.slice(-4)}`,
+        rollNumber: session.studentId?.replace('student_', '') || 'Unknown',
+        status: 'normal' as const, // Default status, will be updated via WebSocket
+        faceDetected: false, // Default false, will be updated via WebSocket
+        multipleFaces: false,
+        lookingAway: false,
+        confidence: 0,
         progress: (session.currentQuestion || 1),
         timeRemaining: session.timeRemaining || 0,
-        lastActivity: new Date().toISOString()
+        lastActivity: new Date().toISOString(),
+        examSessionId: session.id
       })) as StudentMonitoring[];
       
-      setMonitoringData(mockData);
+      setMonitoringData(sessionData);
     }
   }, [activeSessions]);
 
@@ -303,54 +309,78 @@ export default function MonitoringSystem() {
                 {currentStudents.map((student) => (
                   <div key={student.id} className="relative group" data-testid={`video-feed-${student.id}`}>
                     <div className={`video-feed bg-gray-900 rounded-lg overflow-hidden border-2 ${getStatusBorder(student.status)}`} style={{ aspectRatio: '4/3' }}>
-                      <div className="w-full h-full flex items-center justify-center">
-                        {/* Face detection visualization */}
-                        <div className="relative">
-                          {student.multipleFaces ? (
-                            <div className="w-20 h-20 border-2 border-red-400 rounded-full flex items-center justify-center pulse-red">
-                              <i className="fas fa-users text-red-400 text-lg"></i>
-                            </div>
-                          ) : student.lookingAway ? (
-                            <div className="w-20 h-20 border-2 border-yellow-400 rounded-full flex items-center justify-center">
-                              <i className="fas fa-eye-slash text-yellow-400 text-lg"></i>
-                            </div>
-                          ) : student.faceDetected ? (
-                            <div className="w-20 h-20 border-2 border-green-400 rounded-full flex items-center justify-center">
-                              <i className="fas fa-user text-green-400 text-lg"></i>
+                      {/* Live Camera Status Display */}
+                      <div className="w-full h-full relative bg-gradient-to-br from-gray-900 to-gray-800">
+                        {/* Camera Status Visualization */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          {student.faceDetected ? (
+                            <div className="text-center">
+                              {/* Face Detection Visual */}
+                              <div className="relative mb-4">
+                                {student.multipleFaces ? (
+                                  <div className="w-16 h-16 border-2 border-red-400 rounded-full flex items-center justify-center animate-pulse">
+                                    <i className="fas fa-users text-red-400 text-xl"></i>
+                                  </div>
+                                ) : student.lookingAway ? (
+                                  <div className="w-16 h-16 border-2 border-yellow-400 rounded-full flex items-center justify-center">
+                                    <i className="fas fa-eye-slash text-yellow-400 text-xl"></i>
+                                  </div>
+                                ) : (
+                                  <div className="w-16 h-16 border-2 border-green-400 rounded-full flex items-center justify-center">
+                                    <i className="fas fa-user text-green-400 text-xl"></i>
+                                  </div>
+                                )}
+                                {/* Status indicator */}
+                                <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full ${
+                                  student.status === 'alert' ? 'bg-red-500 animate-ping' :
+                                  student.status === 'warning' ? 'bg-yellow-500 animate-pulse' :
+                                  'bg-green-500'
+                                }`}></div>
+                              </div>
+                              {/* Live indicator */}
+                              <div className="flex items-center justify-center space-x-1 text-green-400 text-xs">
+                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                <span>LIVE CAMERA</span>
+                              </div>
+                              <div className="text-xs text-gray-300 mt-1">
+                                Confidence: {Math.round(student.confidence * 100)}%
+                              </div>
                             </div>
                           ) : (
-                            <div className="w-20 h-20 border-2 border-gray-400 rounded-full flex items-center justify-center">
-                              <i className="fas fa-wifi-slash text-gray-400 text-lg"></i>
+                            <div className="text-center">
+                              <div className="w-16 h-16 border-2 border-gray-500 rounded-full flex items-center justify-center mb-4">
+                                <i className="fas fa-video-slash text-gray-500 text-xl"></i>
+                              </div>
+                              <div className="text-xs text-gray-400">Camera Inactive</div>
                             </div>
                           )}
-                          {student.faceDetected && (
-                            <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full ${
-                              student.status === 'alert' ? 'bg-red-500 animate-ping' :
-                              student.status === 'warning' ? 'bg-yellow-500 animate-pulse' :
-                              'bg-green-500 pulse-green'
-                            }`}></div>
-                          )}
                         </div>
-                      </div>
-                      <div className="absolute top-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
-                        {student.name}
-                      </div>
-                      <div className={`absolute top-2 right-2 px-2 py-1 rounded text-xs text-white ${
-                        student.status === 'alert' ? 'bg-red-500' :
-                        student.status === 'warning' ? 'bg-yellow-500' :
-                        student.status === 'normal' ? 'bg-green-500' :
-                        'bg-gray-500'
-                      }`}>
-                        ● {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
-                      </div>
-                      <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
-                        {student.rollNumber}
-                      </div>
-                      {student.faceDetected && (
+                        
+                        {/* Overlays */}
+                        <div className="absolute top-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
+                          {student.name}
+                        </div>
+                        <div className={`absolute top-2 right-2 px-2 py-1 rounded text-xs text-white flex items-center space-x-1 ${
+                          student.status === 'alert' ? 'bg-red-500' :
+                          student.status === 'warning' ? 'bg-yellow-500' :
+                          student.status === 'normal' ? 'bg-green-500' :
+                          'bg-gray-500'
+                        }`}>
+                          <div className={`w-2 h-2 rounded-full ${
+                            student.status === 'alert' ? 'bg-white animate-ping' :
+                            student.status === 'warning' ? 'bg-white animate-pulse' :
+                            student.status === 'normal' ? 'bg-white' :
+                            'bg-gray-300'
+                          }`}></div>
+                          <span>{student.status.charAt(0).toUpperCase() + student.status.slice(1)}</span>
+                        </div>
+                        <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
+                          {student.rollNumber}
+                        </div>
                         <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
-                          {Math.round(student.confidence * 100)}%
+                          {new Date(student.lastActivity).toLocaleTimeString()}
                         </div>
-                      )}
+                      </div>
                     </div>
                     
                     {/* Hover overlay */}
