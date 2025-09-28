@@ -394,6 +394,64 @@ export default function ExamMode() {
     });
   };
 
+  // Video snapshot streaming to admin for live monitoring
+  useEffect(() => {
+    if (!examSession || !stream || !sendMessage) return;
+
+    const sendVideoSnapshot = async () => {
+      try {
+        // Capture snapshot from video stream
+        const video = document.createElement('video');
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) return;
+        
+        video.srcObject = stream;
+        video.play();
+        
+        video.addEventListener('loadedmetadata', () => {
+          canvas.width = 320; // Smaller size for WebSocket transmission
+          canvas.height = 240;
+          ctx.drawImage(video, 0, 0, 320, 240);
+          
+          // Convert to data URL and send via WebSocket
+          const imageData = canvas.toDataURL('image/jpeg', 0.6);
+          sendMessage({
+            type: 'video_snapshot',
+            data: {
+              sessionId: examSession.id,
+              studentId: user?.id,
+              studentName: hallTicketData?.studentName,
+              rollNumber: hallTicketData?.rollNumber,
+              snapshot: imageData,
+              timestamp: new Date().toISOString()
+            }
+          });
+        });
+      } catch (error) {
+        console.error('Error capturing video snapshot:', error);
+        // Fallback to monitoring logs API
+        try {
+          await apiRequest("POST", "/api/monitoring-logs", {
+            sessionId: examSession.id,
+            eventType: 'snapshot_failed',
+            eventData: { error: error.message, timestamp: new Date().toISOString() }
+          });
+        } catch (fallbackError) {
+          console.error('Fallback monitoring log failed:', fallbackError);
+        }
+      }
+    };
+
+    // Send snapshots every 3 seconds
+    const snapshotInterval = setInterval(sendVideoSnapshot, 3000);
+    
+    return () => {
+      clearInterval(snapshotInterval);
+    };
+  }, [examSession, stream, sendMessage, user, hallTicketData]);
+
   // Timer countdown - only start when questions are loaded
   useEffect(() => {
     const questionsLoaded = questions && questions.length > 0;

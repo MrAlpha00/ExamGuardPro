@@ -414,8 +414,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Monitoring routes
-  app.post('/api/monitoring-logs', isAuthenticated, async (req: any, res) => {
+  // Monitoring routes  
+  app.post('/api/monitoring-logs', async (req, res) => {
     try {
       const data = insertMonitoringLogSchema.parse(req.body);
       const log = await storage.createMonitoringLog(data);
@@ -423,6 +423,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating monitoring log:", error);
       res.status(500).json({ message: "Failed to create monitoring log" });
+    }
+  });
+
+  app.get('/api/monitoring-logs/:sessionId', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { sessionId } = req.params;
+      const logs = await storage.getMonitoringLogs(sessionId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching monitoring logs:", error);
+      res.status(500).json({ message: "Failed to fetch monitoring logs" });
     }
   });
 
@@ -621,6 +637,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
               sessionId: data.sessionId,
               eventType: 'face_detected',
               eventData: data.payload
+            });
+          }
+        }
+
+        if (data.type === 'video_snapshot') {
+          // Broadcast video snapshot to admin clients for live monitoring
+          wss.clients.forEach((client: WebSocketClient) => {
+            if (client.readyState === WebSocket.OPEN && client.type === 'admin') {
+              client.send(JSON.stringify({
+                type: 'video_feed',
+                data: {
+                  sessionId: data.data.sessionId,
+                  studentId: data.data.studentId,
+                  studentName: data.data.studentName,
+                  rollNumber: data.data.rollNumber,
+                  snapshot: data.data.snapshot,
+                  timestamp: data.data.timestamp
+                }
+              }));
+            }
+          });
+          
+          // Log to monitoring logs as fallback
+          if (data.data.sessionId) {
+            await storage.createMonitoringLog({
+              sessionId: data.data.sessionId,
+              eventType: 'video_snapshot',
+              eventData: { 
+                studentId: data.data.studentId,
+                timestamp: data.data.timestamp
+              }
             });
           }
         }

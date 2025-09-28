@@ -24,6 +24,7 @@ interface StudentMonitoring {
   lastActivity: string;
   cameraStream?: MediaStream | null;
   examSessionId?: string;
+  videoSnapshot?: string; // Base64 image data for live video feed
 }
 
 export default function MonitoringSystem() {
@@ -68,6 +69,39 @@ export default function MonitoringSystem() {
                 progress: message.data.progress || 0,
                 timeRemaining: message.data.timeRemaining || 0,
                 lastActivity: new Date().toISOString()
+              });
+            }
+            return updated;
+          });
+        }
+
+        if (message.type === 'video_feed') {
+          setMonitoringData(prev => {
+            const updated = [...prev];
+            const index = updated.findIndex(s => s.id === message.data.studentId);
+            if (index !== -1) {
+              // Update existing student with video snapshot
+              updated[index] = { 
+                ...updated[index], 
+                lastActivity: new Date().toISOString(),
+                videoSnapshot: message.data.snapshot
+              };
+            } else {
+              // Add new student with video feed
+              updated.push({
+                id: message.data.studentId,
+                name: message.data.studentName || 'Unknown Student',
+                rollNumber: message.data.rollNumber || 'N/A',
+                status: 'normal',
+                faceDetected: true,
+                multipleFaces: false,
+                lookingAway: false,
+                confidence: 0.8,
+                progress: 0,
+                timeRemaining: 0,
+                lastActivity: new Date().toISOString(),
+                videoSnapshot: message.data.snapshot,
+                examSessionId: message.data.sessionId
               });
             }
             return updated;
@@ -309,52 +343,62 @@ export default function MonitoringSystem() {
                 {currentStudents.map((student) => (
                   <div key={student.id} className="relative group" data-testid={`video-feed-${student.id}`}>
                     <div className={`video-feed bg-gray-900 rounded-lg overflow-hidden border-2 ${getStatusBorder(student.status)}`} style={{ aspectRatio: '4/3' }}>
-                      {/* Live Camera Status Display */}
+                      {/* Live Video Feed Display */}
                       <div className="w-full h-full relative bg-gradient-to-br from-gray-900 to-gray-800">
-                        {/* Camera Status Visualization */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          {student.faceDetected ? (
-                            <div className="text-center">
-                              {/* Face Detection Visual */}
-                              <div className="relative mb-4">
-                                {student.multipleFaces ? (
-                                  <div className="w-16 h-16 border-2 border-red-400 rounded-full flex items-center justify-center animate-pulse">
-                                    <i className="fas fa-users text-red-400 text-xl"></i>
-                                  </div>
-                                ) : student.lookingAway ? (
-                                  <div className="w-16 h-16 border-2 border-yellow-400 rounded-full flex items-center justify-center">
-                                    <i className="fas fa-eye-slash text-yellow-400 text-xl"></i>
-                                  </div>
-                                ) : (
-                                  <div className="w-16 h-16 border-2 border-green-400 rounded-full flex items-center justify-center">
-                                    <i className="fas fa-user text-green-400 text-xl"></i>
-                                  </div>
-                                )}
-                                {/* Status indicator */}
-                                <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full ${
-                                  student.status === 'alert' ? 'bg-red-500 animate-ping' :
-                                  student.status === 'warning' ? 'bg-yellow-500 animate-pulse' :
-                                  'bg-green-500'
-                                }`}></div>
+                        {student.videoSnapshot ? (
+                          // Display actual video snapshot from student
+                          <img 
+                            src={student.videoSnapshot} 
+                            alt={`Live feed for ${student.name}`}
+                            className="w-full h-full object-cover"
+                            style={{ imageRendering: 'auto' }}
+                          />
+                        ) : (
+                          // Fallback to status visualization when no video feed
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            {student.faceDetected ? (
+                              <div className="text-center">
+                                {/* Face Detection Visual */}
+                                <div className="relative mb-4">
+                                  {student.multipleFaces ? (
+                                    <div className="w-16 h-16 border-2 border-red-400 rounded-full flex items-center justify-center animate-pulse">
+                                      <i className="fas fa-users text-red-400 text-xl"></i>
+                                    </div>
+                                  ) : student.lookingAway ? (
+                                    <div className="w-16 h-16 border-2 border-yellow-400 rounded-full flex items-center justify-center">
+                                      <i className="fas fa-eye-slash text-yellow-400 text-xl"></i>
+                                    </div>
+                                  ) : (
+                                    <div className="w-16 h-16 border-2 border-green-400 rounded-full flex items-center justify-center">
+                                      <i className="fas fa-user text-green-400 text-xl"></i>
+                                    </div>
+                                  )}
+                                  {/* Status indicator */}
+                                  <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full ${
+                                    student.status === 'alert' ? 'bg-red-500 animate-ping' :
+                                    student.status === 'warning' ? 'bg-yellow-500 animate-pulse' :
+                                    'bg-green-500'
+                                  }`}></div>
+                                </div>
+                                {/* Live indicator */}
+                                <div className="flex items-center justify-center space-x-1 text-green-400 text-xs">
+                                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                  <span>STATUS ONLY</span>
+                                </div>
+                                <div className="text-xs text-gray-300 mt-1">
+                                  Confidence: {Math.round(student.confidence * 100)}%
+                                </div>
                               </div>
-                              {/* Live indicator */}
-                              <div className="flex items-center justify-center space-x-1 text-green-400 text-xs">
-                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                                <span>LIVE CAMERA</span>
+                            ) : (
+                              <div className="text-center">
+                                <div className="w-16 h-16 border-2 border-gray-500 rounded-full flex items-center justify-center mb-4">
+                                  <i className="fas fa-video-slash text-gray-500 text-xl"></i>
+                                </div>
+                                <div className="text-xs text-gray-400">Camera Inactive</div>
                               </div>
-                              <div className="text-xs text-gray-300 mt-1">
-                                Confidence: {Math.round(student.confidence * 100)}%
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="text-center">
-                              <div className="w-16 h-16 border-2 border-gray-500 rounded-full flex items-center justify-center mb-4">
-                                <i className="fas fa-video-slash text-gray-500 text-xl"></i>
-                              </div>
-                              <div className="text-xs text-gray-400">Camera Inactive</div>
-                            </div>
-                          )}
-                        </div>
+                            )}
+                          </div>
+                        )}
                         
                         {/* Overlays */}
                         <div className="absolute top-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
