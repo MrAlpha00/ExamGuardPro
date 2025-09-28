@@ -19,7 +19,7 @@ import DraftBin from "@/pages/admin/draft-bin";
 
 // Student pages
 import StudentAuthentication from "@/pages/student/authentication";
-import IdentityVerification from "@/pages/student/identity-verification";
+import SimpleIdentityVerification from "@/pages/student/simple-identity-verification";
 import ExamMode from "@/pages/student/exam";
 import ExamComplete from "@/pages/student/exam-complete";
 
@@ -34,7 +34,7 @@ function Router() {
       {/* Student routes - always available (they guard themselves) */}
       <Route path="/student/auth" component={StudentAuthentication} />
       <Route path="/hall-ticket" component={StudentAuthentication} />
-      <Route path="/student/identity-verification" component={IdentityVerification} />
+      <Route path="/student/identity-verification" component={SimpleIdentityVerification} />
       <Route path="/student/exam" component={ExamMode} />
       <Route path="/exam-complete" component={ExamComplete} />
       

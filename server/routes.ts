@@ -7,6 +7,7 @@ import { insertHallTicketSchema, clientHallTicketSchema, insertExamSessionSchema
 import QRCode from "qrcode";
 import { nanoid } from "nanoid";
 import { verifyIDDocument } from "./ai-verification";
+import { extractNameFromDocument } from "./simple-name-verification";
 
 interface WebSocketClient extends WebSocket {
   sessionId?: string;
@@ -580,6 +581,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI-powered ID verification endpoint
+  // Simple name-based verification route (new simplified system)
+  app.post('/api/verify-name', async (req, res) => {
+    try {
+      const { idCardImage, expectedName } = req.body;
+      
+      if (!idCardImage || !expectedName) {
+        return res.status(400).json({ 
+          message: "Missing required fields: idCardImage and expectedName" 
+        });
+      }
+      
+      console.log("Starting simple name verification for:", expectedName);
+      
+      const result = await extractNameFromDocument(idCardImage, expectedName);
+      
+      res.json({
+        isValid: result.isValid,
+        confidence: result.confidence,
+        extractedName: result.extractedName,
+        reason: result.reason
+      });
+      
+    } catch (error) {
+      console.error("Name verification error:", error);
+      res.status(500).json({ 
+        message: "Verification failed. Please try again.",
+        error: process.env.NODE_ENV === 'development' ? (error as Error)?.message : undefined
+      });
+    }
+  });
+
+  // Old complex verification route (kept for fallback)
   app.post('/api/verify-identity', async (req, res) => {
     try {
       const { idCardImage, selfieImage, expectedName, expectedIdNumber, hallTicketId } = req.body;
