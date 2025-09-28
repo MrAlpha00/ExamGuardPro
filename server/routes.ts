@@ -599,7 +599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const oneMinuteAgo = new Date(Date.now() - 60000);
             const recentSameType = recentIncidents.filter(incident => 
               incident.incidentType === data.data.incidentType && 
-              new Date(incident.createdAt) > oneMinuteAgo
+              incident.createdAt && new Date(incident.createdAt) > oneMinuteAgo
             );
             
             if (recentSameType.length >= 3) {

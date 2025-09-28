@@ -28,14 +28,10 @@ export default function IdentityVerification() {
   const [documentVerificationStatus, setDocumentVerificationStatus] = useState<'pending' | 'verifying' | 'verified' | 'failed'>('pending');
   const [documentPreview, setDocumentPreview] = useState<string | null>(null);
   
-  // Test mode detection for bypassing camera/verification in development
+  // Test mode detection for bypassing camera/verification - ONLY in explicit development
   const TEST_MODE = import.meta.env.NODE_ENV === 'development' ||
                    import.meta.env.VITE_TEST_MODE === 'true' || 
-                   localStorage.getItem('test-mode') === '1' ||
-                   window.location.hostname === 'localhost' || 
-                   window.location.hostname === '127.0.0.1' ||
-                   window.location.hostname.includes('replit.') ||
-                   window.location.hostname.includes('.replit.app');
+                   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   
   const { stream, isActive: cameraActive, error: cameraError, startCamera, stopCamera, capturePhoto } = useWebcam();
   const { faceDetected, confidence } = useFaceDetection(stream);
