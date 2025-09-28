@@ -41,6 +41,7 @@ function Router() {
       {/* Admin routes - protected by auth */}
       {isAuthenticated && (
         <>
+          <Route path="/admin" component={Home} />
           <Route path="/admin/hall-tickets" component={HallTicketGeneration} />
           <Route path="/admin/dashboard" component={AdminDashboard} />
           <Route path="/admin/monitoring" component={MonitoringSystem} />

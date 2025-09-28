@@ -262,9 +262,16 @@ export default function HallTicketGeneration() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-2xl">Generate Hall Tickets</CardTitle>
-                  <Button variant="outline" data-testid="button-bulk-export">
-                    <i className="fas fa-download mr-2"></i>Bulk Export
-                  </Button>
+                  <div className="flex items-center space-x-2">
+                    <Link href="/admin/draft-bin">
+                      <Button variant="outline" data-testid="button-draft-bin">
+                        <i className="fas fa-folder-open mr-2"></i>Draft Bin
+                      </Button>
+                    </Link>
+                    <Button variant="outline" data-testid="button-bulk-export">
+                      <i className="fas fa-download mr-2"></i>Bulk Export
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

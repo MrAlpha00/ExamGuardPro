@@ -185,10 +185,30 @@ export class DatabaseStorage implements IStorage {
     return session;
   }
 
-  async getAllExamSessions(): Promise<ExamSession[]> {
+  async getAllExamSessions(): Promise<any[]> {
     return await db
-      .select()
+      .select({
+        id: examSessions.id,
+        hallTicketId: examSessions.hallTicketId,
+        studentId: examSessions.studentId,
+        status: examSessions.status,
+        startTime: examSessions.startTime,
+        endTime: examSessions.endTime,
+        currentQuestion: examSessions.currentQuestion,
+        answers: examSessions.answers,
+        questionIds: examSessions.questionIds,
+        timeRemaining: examSessions.timeRemaining,
+        isVerified: examSessions.isVerified,
+        verificationData: examSessions.verificationData,
+        createdAt: examSessions.createdAt,
+        updatedAt: examSessions.updatedAt,
+        // Include user information
+        studentName: users.firstName,
+        studentLastName: users.lastName,
+        studentEmail: users.email
+      })
       .from(examSessions)
+      .leftJoin(users, eq(users.id, examSessions.studentId))
       .orderBy(desc(examSessions.startTime));
   }
 

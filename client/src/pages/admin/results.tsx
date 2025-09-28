@@ -49,7 +49,7 @@ export default function Results() {
       ...completedSessions.map((session: any) => {
         const results = getResultsForSession(session);
         return [
-          session.studentId,
+          `${session.studentName || ''} ${session.studentLastName || ''}`.trim() || session.studentId,
           "Exam", // Default exam name since examName doesn't exist in schema
           `${results.score}%`,
           results.correctAnswers,
@@ -176,7 +176,8 @@ export default function Results() {
                         <div className="flex-1">
                           <div className="flex items-center gap-4 mb-2">
                             <h3 className="font-semibold text-gray-900 dark:text-white" data-testid={`text-student-${session.studentId}`}>
-                              Student: {session.studentId}
+                              Student: {session.studentName} {session.studentLastName || ''} 
+                              {!session.studentName && `ID: ${session.studentId}`}
                             </h3>
                             <Badge variant="outline">
                               Exam Session

@@ -154,6 +154,25 @@ export default function Home() {
                   </Link>
                 </CardContent>
               </Card>
+
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <i className="fas fa-chart-bar text-primary"></i>
+                    <span>Exam Results</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    View student performance, analyze scores, and generate reports.
+                  </p>
+                  <Link href="/admin/results">
+                    <Button className="w-full" data-testid="link-results">
+                      View Results
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
             </>
           ) : (
             <>
