@@ -109,6 +109,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/hall-tickets/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const updates = req.body;
+      const updatedTicket = await storage.updateHallTicket(id, updates);
+      res.json(updatedTicket);
+    } catch (error) {
+      console.error("Error updating hall ticket:", error);
+      res.status(500).json({ message: "Failed to update hall ticket" });
+    }
+  });
+
   app.delete('/api/hall-tickets/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;

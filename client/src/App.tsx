@@ -15,6 +15,7 @@ import MonitoringSystem from "@/pages/admin/monitoring";
 import IncidentManagement from "@/pages/admin/incidents";
 import QuestionManagement from "@/pages/admin/question-management";
 import Results from "@/pages/admin/results";
+import DraftBin from "@/pages/admin/draft-bin";
 
 // Student pages
 import StudentAuthentication from "@/pages/student/authentication";
@@ -46,6 +47,7 @@ function Router() {
           <Route path="/admin/incidents" component={IncidentManagement} />
           <Route path="/admin/questions" component={QuestionManagement} />
           <Route path="/admin/results" component={Results} />
+          <Route path="/admin/draft-bin" component={DraftBin} />
         </>
       )}
       
