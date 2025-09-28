@@ -67,7 +67,7 @@ export default function IdentityVerification() {
     startCamera();
   }, [startCamera]);
 
-  // Camera error bypass for test mode
+  // Camera error bypass for test mode and auto-verification
   useEffect(() => {
     if (TEST_MODE && cameraError && cameraError.includes('NotFoundError')) {
       toast({
@@ -75,8 +75,16 @@ export default function IdentityVerification() {
         description: "Camera not available - using test mode bypass",
         variant: "default",
       });
+      
+      // Auto-trigger verification if document is already uploaded and camera fails
+      if (documentUploaded && documentVerificationStatus === 'verified') {
+        setTimeout(() => {
+          console.log("Auto-triggering verification due to no camera in test mode");
+          performAIVerification();
+        }, 2000);
+      }
     }
-  }, [TEST_MODE, cameraError, toast]);
+  }, [TEST_MODE, cameraError, documentUploaded, documentVerificationStatus, toast]);
 
   const handleCapturePhoto = async () => {
     try {
@@ -204,34 +212,41 @@ export default function IdentityVerification() {
       // Analyze document quality
       const analysis = await analyzeDocument(file);
       
-      setTimeout(() => {
-        if (analysis.quality === 'poor') {
-          setDocumentVerificationStatus('failed');
-          toast({
-            title: "Document Quality Issues",
-            description: `Please upload a clearer image. Issues: ${analysis.issues.join(', ')}`,
-            variant: "destructive",
-          });
+      // Immediately process without delay for faster verification
+      if (analysis.quality === 'poor') {
+        setDocumentVerificationStatus('failed');
+        toast({
+          title: "Document Quality Issues",
+          description: `Please upload a clearer image. Issues: ${analysis.issues.join(', ')}`,
+          variant: "destructive",
+        });
+      } else {
+        // Instead of auto-completing, trigger AI verification immediately
+        if (capturedPhoto) {
+          performAIVerification();
         } else {
-          // Instead of auto-completing, trigger AI verification
-          if (capturedPhoto) {
-            performAIVerification();
-          } else {
-            setDocumentVerificationStatus('verified');
-            setDocumentUploaded(true);
-            
-            let message = "ID document uploaded successfully! Now capture your photo for AI verification.";
-            if (analysis.issues.length > 0) {
-              message += ` Note: ${analysis.issues.join(', ')}`;
-            }
-            
-            toast({
-              title: "Document Uploaded",
-              description: message,
-            });
+          setDocumentVerificationStatus('verified');
+          setDocumentUploaded(true);
+          
+          let message = "ID document uploaded successfully!";
+          if (analysis.issues.length > 0) {
+            message += ` Note: ${analysis.issues.join(', ')}`;
           }
+          
+          // Auto-trigger verification ONLY in test mode for security
+          if (TEST_MODE && cameraError && cameraError.includes('NotFoundError')) {
+            message += " Auto-verifying without camera (TEST MODE)...";
+            setTimeout(() => performAIVerification(), 1000);
+          } else {
+            message += " Now capture your photo for AI verification.";
+          }
+          
+          toast({
+            title: "Document Uploaded",
+            description: message,
+          });
         }
-      }, 2000); // Simulate processing time
+      }
       
     } catch (error) {
       setDocumentVerificationStatus('failed');
@@ -258,6 +273,14 @@ export default function IdentityVerification() {
       description: "Camera verification bypassed for testing",
       variant: "default",
     });
+    
+    // Auto-trigger verification if document is already uploaded
+    if (documentUploaded && documentVerificationStatus === 'verified') {
+      setTimeout(() => {
+        console.log("Auto-triggering AI verification after camera bypass");
+        performAIVerification();
+      }, 1000);
+    }
   };
 
   const bypassDocumentForTesting = () => {
@@ -269,6 +292,126 @@ export default function IdentityVerification() {
       description: "Document verification bypassed for testing",
       variant: "default",
     });
+  };
+
+  // Fast AI verification function (5-10 seconds max)
+  const performAIVerification = async () => {
+    if (!hallTicketData) {
+      toast({
+        title: "Error",
+        description: "Hall ticket data missing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!documentFile || !documentPreview) {
+      toast({
+        title: "Error", 
+        description: "Please upload your ID document first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setVerificationResult(null);
+      
+      // Use placeholder photo ONLY in test mode for security
+      let photoToUse = capturedPhoto;
+      if (!photoToUse && TEST_MODE) {
+        photoToUse = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="; // 1x1 pixel placeholder
+        console.log("Using placeholder photo for verification (TEST MODE ONLY)");
+      }
+
+      if (!photoToUse) {
+        toast({
+          title: "Error",
+          description: "Please capture your photo first or enable camera",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log("Starting fast AI verification...");
+      
+      // Convert document file to base64
+      const documentBase64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target?.result as string;
+          const base64 = result.split(',')[1]; // Remove data:image/... prefix
+          resolve(base64);
+        };
+        reader.readAsDataURL(documentFile);
+      });
+
+      // Extract base64 from photo (remove data URL prefix if present)
+      const photoBase64 = photoToUse.includes(',') ? photoToUse.split(',')[1] : photoToUse;
+
+      const requestData = {
+        idCardImage: documentBase64,
+        selfieImage: photoBase64,
+        expectedName: hallTicketData.studentName,
+        expectedIdNumber: hallTicketData.rollNumber,
+        hallTicketId: hallTicketData.id
+      };
+
+      console.log("Calling fast verification API...");
+      
+      const response = await fetch('/api/verify-identity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      const result = await response.json();
+      console.log("Verification result:", result);
+
+      setVerificationResult(result);
+
+      if (result.isValid) {
+        setVerificationStep('complete');
+        toast({
+          title: "Verification Successful! ✅",
+          description: `Identity verified in ${result.confidence ? Math.round(result.confidence * 100) : 85}% confidence. You can now start your exam.`,
+        });
+      } else {
+        toast({
+          title: "Verification Failed",
+          description: result.reasons?.join('. ') || "Unable to verify identity. Please try again.",
+          variant: "destructive",
+        });
+      }
+
+    } catch (error) {
+      console.error("Verification error:", error);
+      
+      // Fast fallback: Auto-approve if API fails for speed
+      if (TEST_MODE) {
+        console.log("API failed, using fallback approval for test mode");
+        setVerificationResult({
+          isValid: true,
+          confidence: 0.7,
+          extractedData: { name: hallTicketData.studentName },
+          faceMatch: { matches: true, confidence: 0.7 },
+          reasons: ["Fallback approval: API unavailable"]
+        });
+        setVerificationStep('complete');
+        toast({
+          title: "Verification Complete ✅",
+          description: "Fast approval applied. You can now start your exam.",
+        });
+      } else {
+        toast({
+          title: "Verification Error",
+          description: "Failed to verify identity. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const handleContinueToExam = () => {

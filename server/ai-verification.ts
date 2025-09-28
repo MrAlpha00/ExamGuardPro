@@ -26,26 +26,17 @@ export async function verifyIDDocument(
   expectedIdNumber?: string
 ): Promise<IDVerificationResult> {
   try {
-    // Single combined API call for faster verification
-    const verificationResponse = await openai.chat.completions.create({
+    // Ultra-fast verification with 8-second timeout
+    const verificationPromise = openai.chat.completions.create({
       model: "gpt-5",
       messages: [
         {
           role: "system",
-          content: `You are a fast ID verification system. Analyze both images simultaneously:
-1. Extract name from the ID document
-2. Check if the person in both images is the same
-3. Validate document authenticity
-
-Return this JSON structure:
+          content: `Fast ID checker. Extract name from ID and check if faces match. Reply with JSON:
 {
-  "name": "extracted name from ID",
-  "documentType": "type of document",
-  "isValidDocument": boolean,
+  "name": "name from ID",
   "faceMatch": boolean,
-  "overallConfidence": number (0-1),
-  "passed": boolean,
-  "reason": "brief explanation"
+  "passed": boolean
 }`
         },
         {
@@ -53,12 +44,7 @@ Return this JSON structure:
           content: [
             {
               type: "text",
-              text: `Quick verification needed:
-1. Extract the name from the ID document
-2. Check if the faces match between ID and selfie
-3. Expected name should be: "${expectedName}"
-
-Focus on speed and accuracy. Return pass/fail decision.`
+              text: `Extract name from ID and check if faces match. Expected: "${expectedName}"`
             },
             {
               type: "image_url",
@@ -76,52 +62,86 @@ Focus on speed and accuracy. Return pass/fail decision.`
         }
       ],
       response_format: { type: "json_object" },
-      max_tokens: 500 // Limit response for speed
+      max_tokens: 150 // Minimal response for speed
     });
+
+    // 8-second timeout for fast processing
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Verification timeout')), 8000)
+    );
+
+    const verificationResponse = await Promise.race([verificationPromise, timeoutPromise]) as any;
 
     const result = JSON.parse(verificationResponse.choices[0].message.content || '{}');
 
-    // Fast validation logic
+    // Fast validation logic with lenient matching
     const reasons: string[] = [];
-    let isValid = result.passed || false;
+    let isValid = false;
+    let confidence = 0.6; // Default confidence
     
-    // Check name match with more lenient comparison
+    // Check name match with secure threshold (80% for security)
     if (result.name && expectedName) {
       const nameSimilarity = calculateNameSimilarity(result.name.toLowerCase(), expectedName.toLowerCase());
-      if (nameSimilarity < 0.7) { // More lenient threshold
-        isValid = false;
-        reasons.push(`Name mismatch: Expected "${expectedName}", found "${result.name}"`);
+      if (nameSimilarity >= 0.8) { // Secure threshold
+        isValid = true;
+        confidence = nameSimilarity;
+        reasons.push(`Name match found: "${result.name}" ≈ "${expectedName}"`);
+      } else {
+        reasons.push(`Name similarity too low: ${Math.round(nameSimilarity * 100)}% (need 80%)`);
       }
     }
 
-    // Add AI's reason
-    if (result.reason) {
-      reasons.push(result.reason);
-    }
-
-    // Override if AI says it passed but we failed name check
-    if (!isValid && result.passed) {
-      reasons.push("Failed name verification despite face match");
+    // Require BOTH AI approval AND face match for security
+    if (result.passed && result.faceMatch && isValid) {
+      confidence = Math.max(confidence, 0.8);
+      reasons.push("AI verification passed with face match and name verification");
+    } else {
+      isValid = false;
+      if (!result.passed) reasons.push("AI verification failed");
+      if (!result.faceMatch) reasons.push("Face match failed");
     }
 
     return {
       isValid,
-      confidence: result.overallConfidence || 0.8,
+      confidence,
       extractedData: {
-        name: result.name,
-        documentType: result.documentType,
+        name: result.name || "Unknown",
+        documentType: "ID Document",
         idNumber: expectedIdNumber,
         dateOfBirth: undefined
       },
       faceMatch: {
         matches: result.faceMatch || false,
-        confidence: result.overallConfidence || 0.8
+        confidence: confidence
       },
-      reasons: reasons.length > 0 ? reasons : ["Verification completed"]
+      reasons: reasons.length > 0 ? reasons : ["Quick verification completed"]
     };
 
   } catch (error) {
     console.error("ID verification error:", error);
+    
+    // Secure timeout handling: No auto-approval in production
+    if (error.message && error.message.includes('timeout')) {
+      console.log("AI verification timed out - security failure");
+      
+      // NEVER auto-approve in production for security
+      return {
+        isValid: false,
+        confidence: 0,
+        extractedData: {
+          name: undefined,
+          documentType: undefined,
+          idNumber: expectedIdNumber,
+          dateOfBirth: undefined
+        },
+        faceMatch: {
+          matches: false,
+          confidence: 0
+        },
+        reasons: ["Verification timed out - please try again or contact support"]
+      };
+    }
+    
     return {
       isValid: false,
       confidence: 0,
