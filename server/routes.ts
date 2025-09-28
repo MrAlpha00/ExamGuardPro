@@ -6,6 +6,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertHallTicketSchema, clientHallTicketSchema, insertExamSessionSchema, insertSecurityIncidentSchema, insertMonitoringLogSchema, insertQuestionSchema } from "@shared/schema";
 import QRCode from "qrcode";
 import { nanoid } from "nanoid";
+import { verifyIDDocument } from "./ai-verification";
 
 interface WebSocketClient extends WebSocket {
   sessionId?: string;
@@ -575,6 +576,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting question:", error);
       res.status(500).json({ message: "Failed to delete question" });
+    }
+  });
+
+  // AI-powered ID verification endpoint
+  app.post('/api/verify-identity', async (req, res) => {
+    try {
+      const { idCardImage, selfieImage, expectedName, expectedIdNumber, hallTicketId } = req.body;
+      
+      if (!idCardImage || !selfieImage || !expectedName) {
+        return res.status(400).json({ 
+          message: "Missing required fields: idCardImage, selfieImage, and expectedName are required" 
+        });
+      }
+
+      // Verify hall ticket exists if provided
+      if (hallTicketId) {
+        const hallTicket = await storage.getHallTicketById(hallTicketId);
+        if (!hallTicket || !hallTicket.isActive) {
+          return res.status(400).json({ message: "Invalid or inactive hall ticket" });
+        }
+      }
+
+      // Perform AI verification
+      const verificationResult = await verifyIDDocument(
+        idCardImage,
+        selfieImage,
+        expectedName,
+        expectedIdNumber
+      );
+
+      res.json(verificationResult);
+    } catch (error) {
+      console.error("Identity verification error:", error);
+      res.status(500).json({ 
+        message: "Identity verification failed",
+        error: error.message 
+      });
     }
   });
 

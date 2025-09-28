@@ -27,6 +27,7 @@ export default function IdentityVerification() {
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [documentVerificationStatus, setDocumentVerificationStatus] = useState<'pending' | 'verifying' | 'verified' | 'failed'>('pending');
   const [documentPreview, setDocumentPreview] = useState<string | null>(null);
+  const [verificationResult, setVerificationResult] = useState<any>(null);
   
   // Test mode detection for bypassing camera/verification - ONLY in explicit development
   const TEST_MODE = import.meta.env.NODE_ENV === 'development' ||
@@ -212,19 +213,23 @@ export default function IdentityVerification() {
             variant: "destructive",
           });
         } else {
-          setDocumentVerificationStatus('verified');
-          setDocumentUploaded(true);
-          setVerificationStep('complete');
-          
-          let message = "ID document verified successfully!";
-          if (analysis.issues.length > 0) {
-            message += ` Note: ${analysis.issues.join(', ')}`;
+          // Instead of auto-completing, trigger AI verification
+          if (capturedPhoto) {
+            performAIVerification();
+          } else {
+            setDocumentVerificationStatus('verified');
+            setDocumentUploaded(true);
+            
+            let message = "ID document uploaded successfully! Now capture your photo for AI verification.";
+            if (analysis.issues.length > 0) {
+              message += ` Note: ${analysis.issues.join(', ')}`;
+            }
+            
+            toast({
+              title: "Document Uploaded",
+              description: message,
+            });
           }
-          
-          toast({
-            title: "Document Verified",
-            description: message,
-          });
         }
       }, 2000); // Simulate processing time
       
