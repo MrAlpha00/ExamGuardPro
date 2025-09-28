@@ -234,14 +234,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get randomized questions for this exam
-      const examQuestions = await storage.getRandomQuestions(hallTicket.examName, hallTicket.totalQuestions);
+      let examQuestions = await storage.getRandomQuestions(hallTicket.examName, hallTicket.totalQuestions);
       
-      // Check if we have questions for this exam
+      // If no questions found for specific exam name, fallback to any available questions
       if (!examQuestions || examQuestions.length === 0) {
-        return res.status(400).json({ 
-          message: `No questions found for exam: ${hallTicket.examName}. Please contact the administrator.`,
-          error: "NO_QUESTIONS"
-        });
+        console.log(`No questions found for "${hallTicket.examName}", trying fallback to all questions`);
+        const allQuestions = await storage.getAllQuestions();
+        
+        if (allQuestions.length === 0) {
+          return res.status(400).json({ 
+            message: "No questions available in the system. Please contact the administrator to add questions.",
+            error: "NO_QUESTIONS_IN_SYSTEM"
+          });
+        }
+        
+        // Use random questions from all available
+        const shuffled = allQuestions.sort(() => 0.5 - Math.random());
+        const limit = Math.min(hallTicket.totalQuestions || 20, allQuestions.length);
+        examQuestions = shuffled.slice(0, limit);
+        
+        console.log(`Using ${examQuestions.length} fallback questions for exam`);
       }
       
       const questionIds = examQuestions.map(q => q.id);
