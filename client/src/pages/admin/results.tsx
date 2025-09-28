@@ -33,22 +33,22 @@ export default function Results() {
     );
   }
 
-  const completedSessions = sessions.filter((session: ExamSession) => session.status === "completed");
+  const completedSessions = sessions.filter((session: any) => session.status === "completed");
 
-  const getResultsForSession = (session: ExamSession) => {
+  const getResultsForSession = (session: any) => {
     // Filter questions based on hall ticket data or use all questions
     const sessionQuestions = questions.length > 0 ? questions : [];
-    return generateExamReport(session, sessionQuestions);
+    return generateExamReport(session as ExamSession, sessionQuestions);
   };
 
   const exportResults = () => {
     const csvContent = [
       ["Student ID", "Exam Name", "Score", "Correct Answers", "Total Questions", "Time Spent (minutes)", "Status"].join(","),
-      ...completedSessions.map((session: ExamSession) => {
+      ...completedSessions.map((session: any) => {
         const results = getResultsForSession(session);
         return [
           session.studentId,
-          session.examName || "Unknown",
+          "Exam", // Default exam name since examName doesn't exist in schema
           `${results.score}%`,
           results.correctAnswers,
           results.totalQuestions,
@@ -79,7 +79,7 @@ export default function Results() {
   }
 
   const averageScore = completedSessions.length > 0 
-    ? Math.round(completedSessions.reduce((sum: number, session: ExamSession) => {
+    ? Math.round(completedSessions.reduce((sum: number, session: any) => {
         const results = getResultsForSession(session);
         return sum + results.score;
       }, 0) / completedSessions.length)
@@ -142,7 +142,7 @@ export default function Results() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-600" data-testid="text-total-students">
-                {new Set(completedSessions.map((s: ExamSession) => s.studentId)).size}
+                {new Set(completedSessions.map((s: any) => s.studentId)).size}
               </div>
             </CardContent>
           </Card>
@@ -160,7 +160,7 @@ export default function Results() {
               </div>
             ) : (
               <div className="space-y-4">
-                {completedSessions.map((session: ExamSession) => {
+                {completedSessions.map((session: any) => {
                   const results = getResultsForSession(session);
                   const getScoreColor = (score: number) => {
                     if (score >= 80) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100";
@@ -177,7 +177,7 @@ export default function Results() {
                               Student: {session.studentId}
                             </h3>
                             <Badge variant="outline">
-                              {session.examName || "Unknown Exam"}
+                              Exam Session
                             </Badge>
                           </div>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 dark:text-gray-300">
@@ -197,7 +197,7 @@ export default function Results() {
                             </div>
                             <div>
                               <span className="font-medium">Completed:</span>
-                              <span className="ml-1">{session.endedAt ? new Date(session.endedAt).toLocaleDateString() : "N/A"}</span>
+                              <span className="ml-1">{session.endTime ? new Date(session.endTime).toLocaleDateString() : "N/A"}</span>
                             </div>
                           </div>
                         </div>
