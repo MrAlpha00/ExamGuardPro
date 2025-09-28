@@ -381,38 +381,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/security-incidents', isAuthenticated, async (req: any, res) => {
-    try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (!user || user.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
-      const incidents = await storage.getActiveSecurityIncidents();
-      res.json(incidents);
-    } catch (error) {
-      console.error("Error fetching security incidents:", error);
-      res.status(500).json({ message: "Failed to fetch security incidents" });
-    }
-  });
-
-  app.patch('/api/security-incidents/:id', isAuthenticated, async (req: any, res) => {
-    try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (!user || user.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
-      const { id } = req.params;
-      const updates = req.body;
-
-      const updatedIncident = await storage.updateSecurityIncident(id, updates);
-      res.json(updatedIncident);
-    } catch (error) {
-      console.error("Error updating security incident:", error);
-      res.status(500).json({ message: "Failed to update security incident" });
-    }
-  });
 
   // Monitoring routes  
   app.post('/api/monitoring-logs', async (req, res) => {

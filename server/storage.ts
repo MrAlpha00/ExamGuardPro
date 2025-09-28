@@ -138,6 +138,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteHallTicket(id: string): Promise<void> {
+    // First, get all exam sessions that reference this hall ticket
+    const relatedSessions = await db
+      .select()
+      .from(examSessions)
+      .where(eq(examSessions.hallTicketId, id));
+
+    // Delete security incidents for each related exam session (cascade)
+    for (const session of relatedSessions) {
+      await db.delete(securityIncidents).where(eq(securityIncidents.sessionId, session.id));
+      await db.delete(monitoringLogs).where(eq(monitoringLogs.sessionId, session.id));
+    }
+
+    // Delete all exam sessions that reference this hall ticket
+    await db.delete(examSessions).where(eq(examSessions.hallTicketId, id));
+
+    // Finally, delete the hall ticket
     await db.delete(hallTickets).where(eq(hallTickets.id, id));
   }
 
