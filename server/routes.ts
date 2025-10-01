@@ -588,10 +588,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
 
-  // Create WebSocket server
+  // Create WebSocket server with authentication
   const wss = new WebSocketServer({ 
-    server: httpServer, 
-    path: '/ws' 
+    noServer: true
+  });
+
+  // Handle WebSocket upgrade with JWT authentication
+  httpServer.on('upgrade', (request, socket, head) => {
+    if (request.url !== '/ws') {
+      socket.destroy();
+      return;
+    }
+
+    // Parse cookies from the upgrade request
+    const cookies: Record<string, string> = {};
+    if (request.headers.cookie) {
+      request.headers.cookie.split(';').forEach(cookie => {
+        const [key, value] = cookie.split('=').map(c => c.trim());
+        if (key && value) {
+          cookies[key] = value;
+        }
+      });
+    }
+
+    // Validate JWT token for admin connections
+    let isAdmin = false;
+    const adminToken = cookies['admin_token'];
+    
+    if (adminToken) {
+      try {
+        const secret = process.env.JWT_SECRET || 'dev-secret-change-in-production-' + Date.now();
+        const decoded = jwt.verify(adminToken, secret) as { email: string; role: string };
+        if (decoded.role === 'admin') {
+          isAdmin = true;
+        }
+      } catch (error) {
+        console.error('WebSocket JWT validation failed:', error);
+      }
+    }
+
+    wss.handleUpgrade(request, socket, head, (ws: WebSocketClient) => {
+      if (isAdmin) {
+        ws.type = 'admin';
+      }
+      wss.emit('connection', ws, request);
+    });
   });
 
   wss.on('connection', (ws: WebSocketClient) => {
@@ -600,8 +641,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const data = JSON.parse(message.toString());
         
         if (data.type === 'auth') {
+          // Students can still set their info via auth message (no JWT needed for students)
+          if (!ws.type) {
+            ws.type = data.userType || 'student';
+          }
           ws.userId = data.userId;
-          ws.type = data.userType;
           ws.sessionId = data.sessionId;
         }
         
