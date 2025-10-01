@@ -24,7 +24,7 @@ export default function Landing() {
             <li>
               <Button 
                 variant="outline" 
-                onClick={() => window.location.href = "/api/login?role=admin"}
+                onClick={() => window.location.href = "/admin/login"}
                 className="border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white"
                 data-testid="button-admin-login"
               >
@@ -33,7 +33,7 @@ export default function Landing() {
             </li>
             <li>
               <Button 
-                onClick={() => window.location.href = "/api/login?role=student"}
+                onClick={() => window.location.href = "/hall-ticket"}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
                 data-testid="button-student-login"
               >
@@ -63,13 +63,13 @@ export default function Landing() {
               <div className="flex gap-2">
                 <Button 
                   variant="outline" 
-                  onClick={() => window.location.href = "/api/login?role=admin"}
+                  onClick={() => window.location.href = "/admin/login"}
                   className="border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white flex-1"
                 >
                   Admin
                 </Button>
                 <Button 
-                  onClick={() => window.location.href = "/api/login?role=student"}
+                  onClick={() => window.location.href = "/hall-ticket"}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white flex-1"
                 >
                   Student Login
@@ -91,7 +91,7 @@ export default function Landing() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
-              onClick={() => window.location.href = "/api/login?role=student"}
+              onClick={() => window.location.href = "/hall-ticket"}
               className="bg-white text-indigo-600 hover:bg-gray-100 px-8 py-3 text-lg"
               data-testid="button-start-exam"
             >

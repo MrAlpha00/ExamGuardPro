@@ -9,6 +9,7 @@ import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 
 // Admin pages
+import AdminLogin from "@/pages/admin/login";
 import HallTicketGeneration from "@/pages/admin/hall-ticket-generation";
 import AdminDashboard from "@/pages/admin/dashboard";
 import MonitoringSystem from "@/pages/admin/monitoring";
@@ -30,6 +31,9 @@ function Router() {
     <Switch>
       {/* Home route - conditional based on auth */}
       <Route path="/" component={isLoading || !isAuthenticated ? Landing : Home} />
+      
+      {/* Admin login - always available */}
+      <Route path="/admin/login" component={AdminLogin} />
       
       {/* Student routes - always available (they guard themselves) */}
       <Route path="/student/auth" component={StudentAuthentication} />
