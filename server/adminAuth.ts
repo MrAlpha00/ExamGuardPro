@@ -27,7 +27,7 @@ let adminCredentials: AdminCredentials | null = null;
 function loadAdminCredentials(): AdminCredentials {
   if (adminCredentials) return adminCredentials;
 
-  // Try environment variables first (for production deployments like Render)
+  // Try environment variables first (REQUIRED for production)
   const envEmail = process.env.ADMIN_EMAIL;
   const envPasswordHash = process.env.ADMIN_PASSWORD_HASH;
 
@@ -40,7 +40,14 @@ function loadAdminCredentials(): AdminCredentials {
     return adminCredentials;
   }
 
-  // Fallback to JSON file for local development
+  // In production, env vars are REQUIRED - fail fast for security
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "PRODUCTION SECURITY: ADMIN_EMAIL and ADMIN_PASSWORD_HASH environment variables are required in production. Never use file-based credentials in production."
+    );
+  }
+
+  // Fallback to JSON file ONLY in development
   const credentialsPath = join(process.cwd(), "server", "admin-credentials.json");
   
   if (existsSync(credentialsPath)) {
@@ -52,7 +59,7 @@ function loadAdminCredentials(): AdminCredentials {
         throw new Error("Invalid credentials file format");
       }
       
-      console.log("✓ Admin credentials loaded from file:", credentialsPath);
+      console.log("⚠ Admin credentials loaded from file (DEVELOPMENT ONLY):", credentialsPath);
       adminCredentials = {
         email: data.email,
         passwordHash: data.passwordHash,
@@ -65,21 +72,28 @@ function loadAdminCredentials(): AdminCredentials {
   }
 
   throw new Error(
-    "Admin credentials not found. Set ADMIN_EMAIL and ADMIN_PASSWORD_HASH environment variables, or create server/admin-credentials.json"
+    "Admin credentials not found. Set ADMIN_EMAIL and ADMIN_PASSWORD_HASH environment variables, or create server/admin-credentials.json for development"
   );
 }
 
+let jwtSecret: string | null = null;
+
 function getJWTSecret(): string {
+  if (jwtSecret) return jwtSecret;
+  
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    // For development, use a fallback secret (not secure for production)
+    // For development, use a consistent fallback secret
     if (process.env.NODE_ENV !== "production") {
       console.warn("⚠ Using default JWT_SECRET for development. Set JWT_SECRET env var for production!");
-      return "dev-secret-change-in-production-" + Date.now();
+      jwtSecret = "dev-secret-for-local-development-only";
+      return jwtSecret;
     }
     throw new Error("JWT_SECRET environment variable is required in production");
   }
-  return secret;
+  
+  jwtSecret = secret;
+  return jwtSecret;
 }
 
 export async function login(req: Request, res: Response) {
@@ -111,11 +125,11 @@ export async function login(req: Request, res: Response) {
       { expiresIn: "7d" }
     );
 
-    // Set httpOnly cookie
+    // Set httpOnly cookie with strict security settings
     res.cookie("admin_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 

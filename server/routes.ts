@@ -617,7 +617,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     if (adminToken) {
       try {
-        const secret = process.env.JWT_SECRET || 'dev-secret-change-in-production-' + Date.now();
+        // Use the same JWT secret as the auth module
+        const secret = process.env.JWT_SECRET || 'dev-secret-for-local-development-only';
         const decoded = jwt.verify(adminToken, secret) as { email: string; role: string };
         if (decoded.role === 'admin') {
           isAdmin = true;
