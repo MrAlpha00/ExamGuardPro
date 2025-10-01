@@ -88,7 +88,7 @@ export default function AdminLogin() {
             <div className="text-sm text-muted-foreground">
               <p className="font-medium">Demo Credentials:</p>
               <p>Email: admin@secureexam.com</p>
-              <p>Password: admin123</p>
+              <p>Password: Admin1230</p>
             </div>
           </CardContent>
           <CardFooter>
