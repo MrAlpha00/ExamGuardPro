@@ -176,3 +176,20 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
 }
+
+export async function ensureAdminUser(storage: any, adminEmail: string) {
+  let adminUser = await storage.getUser(adminEmail);
+  
+  if (!adminUser) {
+    adminUser = await storage.upsertUser({
+      id: adminEmail,
+      email: adminEmail,
+      firstName: "Admin",
+      lastName: "User",
+      role: "admin",
+    });
+    console.log("✓ Admin user created in database:", adminEmail);
+  }
+  
+  return adminUser;
+}

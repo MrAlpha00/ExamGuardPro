@@ -381,7 +381,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/monitoring-logs/:sessionId', requireAdmin, async (req: any, res) => {
     try {
-      await ensureAdminUser(storage, req.admin.email);
+      const user = await storage.getUser(req.admin.email);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
 
       const { sessionId } = req.params;
       const logs = await storage.getMonitoringLogs(sessionId);
@@ -394,7 +397,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/exam-stats', requireAdmin, async (req: any, res) => {
     try {
-      await ensureAdminUser(storage, req.admin.email);
+      const user = await storage.getUser(req.admin.email);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
 
       const stats = await storage.getExamStats();
       res.json(stats);
@@ -406,7 +412,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/exam-sessions', requireAdmin, async (req: any, res) => {
     try {
-      await ensureAdminUser(storage, req.admin.email);
+      const user = await storage.getUser(req.admin.email);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
 
       const sessions = await storage.getAllExamSessions();
       res.json(sessions);
@@ -418,7 +427,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/active-sessions', requireAdmin, async (req: any, res) => {
     try {
-      await ensureAdminUser(storage, req.admin.email);
+      const user = await storage.getUser(req.admin.email);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
 
       const sessions = await storage.getActiveExamSessions();
       res.json(sessions);
@@ -431,7 +443,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Security incident routes
   app.get('/api/security-incidents', requireAdmin, async (req: any, res) => {
     try {
-      await ensureAdminUser(storage, req.admin.email);
+      const user = await storage.getUser(req.admin.email);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
 
       const incidents = await storage.getSecurityIncidents();
       res.json(incidents);
@@ -444,7 +459,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/security-incidents/:id', requireAdmin, async (req: any, res) => {
     try {
       const { id } = req.params;
-      await ensureAdminUser(storage, req.admin.email);
+      const user = await storage.getUser(req.admin.email);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
 
       const updates = req.body;
       // Add resolvedAt timestamp on the server side to avoid serialization issues
@@ -462,8 +481,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Question management routes
   app.post('/api/questions', requireAdmin, async (req: any, res) => {
     try {
-      await ensureAdminUser(storage, req.admin.email);
       const userId = req.admin.email;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
 
       const data = insertQuestionSchema.parse(req.body);
       const question = await storage.createQuestion(data);
@@ -476,8 +499,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/questions', requireAdmin, async (req: any, res) => {
     try {
-      await ensureAdminUser(storage, req.admin.email);
       const userId = req.admin.email;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
 
       const questions = await storage.getAllQuestions();
       res.json(questions);
@@ -489,8 +516,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/questions/:id', requireAdmin, async (req: any, res) => {
     try {
-      await ensureAdminUser(storage, req.admin.email);
       const userId = req.admin.email;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
 
       const { id } = req.params;
       const data = insertQuestionSchema.parse(req.body);
@@ -504,8 +535,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/questions/:id', requireAdmin, async (req: any, res) => {
     try {
-      await ensureAdminUser(storage, req.admin.email);
       const userId = req.admin.email;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
 
       const { id } = req.params;
       await storage.deleteQuestion(id);
