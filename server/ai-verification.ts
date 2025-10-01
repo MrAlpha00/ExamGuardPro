@@ -1,7 +1,17 @@
 import OpenAI from "openai";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openaiClient: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI {
+  if (!openaiClient) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY environment variable is not set. AI verification requires an OpenAI API key.");
+    }
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openaiClient;
+}
 
 export interface IDVerificationResult {
   isValid: boolean;
@@ -26,6 +36,8 @@ export async function verifyIDDocument(
   expectedIdNumber?: string
 ): Promise<IDVerificationResult> {
   try {
+    const openai = getOpenAIClient();
+    
     // Ultra-fast verification with 8-second timeout
     const verificationPromise = openai.chat.completions.create({
       model: "gpt-5",
