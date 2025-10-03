@@ -86,20 +86,23 @@ export async function verifyIDDocument(
 
     const result = JSON.parse(verificationResponse.choices[0].message.content || '{}');
 
-    // Fast validation logic with lenient matching
+    // Fast validation logic with balanced matching (AI already validates)
     const reasons: string[] = [];
     let isValid = false;
     let confidence = 0.6; // Default confidence
     
-    // Check name match with secure threshold (80% for security)
+    // Check name match with reasonable threshold (60% since AI also validates)
+    // The AI is already checking the ID, so we can be more lenient with fuzzy name matching
     if (result.name && expectedName) {
       const nameSimilarity = calculateNameSimilarity(result.name.toLowerCase(), expectedName.toLowerCase());
-      if (nameSimilarity >= 0.8) { // Secure threshold
+      console.log(`AI Name comparison: "${result.name}" vs "${expectedName}" = ${Math.round(nameSimilarity * 100)}%`);
+      
+      if (nameSimilarity >= 0.6) { // Balanced threshold with AI validation
         isValid = true;
         confidence = nameSimilarity;
-        reasons.push(`Name match found: "${result.name}" ≈ "${expectedName}"`);
+        reasons.push(`Name match found: "${result.name}" ≈ "${expectedName}" (${Math.round(nameSimilarity * 100)}%)`);
       } else {
-        reasons.push(`Name similarity too low: ${Math.round(nameSimilarity * 100)}% (need 80%)`);
+        reasons.push(`Name similarity too low: ${Math.round(nameSimilarity * 100)}% (need 60%)`);
       }
     }
 

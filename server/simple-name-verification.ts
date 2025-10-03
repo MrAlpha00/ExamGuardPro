@@ -76,8 +76,11 @@ export async function extractNameFromDocument(
     // Compare with expected name
     const similarity = calculateNameSimilarity(extractedName, expectedName);
     
-    // Accept if similarity is 70% or higher
-    if (similarity >= 0.7) {
+    console.log(`Name comparison: "${extractedName}" vs "${expectedName}" = ${Math.round(similarity * 100)}% similarity`);
+    
+    // Accept if similarity is 50% or higher (more lenient for real-world scenarios)
+    // This allows for middle names, initials, nickname variations, etc.
+    if (similarity >= 0.5) {
       return {
         isValid: true,
         confidence: similarity,
@@ -89,7 +92,7 @@ export async function extractNameFromDocument(
         isValid: false,
         confidence: similarity,
         extractedName,
-        reason: `Name mismatch: extracted "${extractedName}" doesn't match "${expectedName}" (${Math.round(similarity * 100)}% similarity, need 70%)`
+        reason: `Name mismatch: extracted "${extractedName}" doesn't match "${expectedName}" (${Math.round(similarity * 100)}% similarity, need 50%)`
       };
     }
     
@@ -145,25 +148,58 @@ async function performBasicOCR(imageBase64: string): Promise<string> {
   }
 }
 
-// Extract name patterns from OCR text
+// Extract name patterns from OCR text - Improved version
 function findNameInText(text: string): string | null {
-  // Common name patterns in ID documents
+  console.log("Raw OCR text:", text);
+  
+  // Common name patterns in ID documents (ordered by reliability)
   const namePatterns = [
-    /name[:\s]+([a-zA-Z\s]+)/i,
-    /^([A-Z][a-z]+ [A-Z][a-z]+)/m, // First Last pattern
-    /([A-Z][A-Z\s]+)/, // All caps name
+    /name[:\s]+([a-zA-Z\s]{4,50})/i,           // "Name: John Doe"
+    /^name[:\s]*\n([a-zA-Z\s]{4,50})/im,       // "Name:" on one line, name on next
+    /holder[:\s]+([a-zA-Z\s]{4,50})/i,         // "Holder: John Doe"
+    /student[:\s]+([a-zA-Z\s]{4,50})/i,        // "Student: John Doe"
+    /([A-Z][a-z]+ [A-Z][a-z]+(?:\s[A-Z][a-z]+)?)/m, // First Middle? Last pattern
+    /([A-Z][A-Z\s]{8,40})/,                    // All caps name (longer matches)
   ];
   
   for (const pattern of namePatterns) {
     const match = text.match(pattern);
     if (match && match[1]) {
-      const name = match[1].trim();
-      // Filter out common non-name text
-      if (name.length > 3 && !name.match(/\d/) && !name.includes('GOVERNMENT')) {
+      const name = match[1]
+        .replace(/\n/g, ' ')         // Replace newlines with spaces
+        .replace(/\s+/g, ' ')        // Normalize spaces
+        .trim();
+      
+      // Filter out common non-name text and validate
+      const isValidName = 
+        name.length >= 4 &&          // At least 4 characters
+        name.length <= 50 &&         // Not too long
+        !name.match(/\d/) &&         // No digits
+        !name.match(/[!@#$%^&*()_+={}[\]|\\:;"'<>,.?/]/) && // No special chars
+        !name.match(/GOVERNMENT|DEPARTMENT|CARD|LICENSE|PASSPORT|IDENTITY/i); // No common doc words
+      
+      if (isValidName) {
+        console.log(`Found name using pattern ${pattern}: "${name}"`);
         return name;
       }
     }
   }
   
+  // Fallback: Try to extract any capitalized words that look like names
+  const words = text.split(/\s+/);
+  const capitalizedWords = words.filter(w => 
+    w.length > 2 && 
+    w[0] === w[0].toUpperCase() && 
+    !w.match(/\d/) &&
+    !w.match(/GOVERNMENT|CARD|LICENSE|PASSPORT|IDENTITY/i)
+  );
+  
+  if (capitalizedWords.length >= 2) {
+    const fallbackName = capitalizedWords.slice(0, 3).join(' ');
+    console.log(`Fallback name extraction: "${fallbackName}"`);
+    return fallbackName;
+  }
+  
+  console.log("No name found in text");
   return null;
 }
