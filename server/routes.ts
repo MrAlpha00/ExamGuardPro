@@ -175,12 +175,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid or inactive hall ticket" });
       }
 
-      // For students, use hall ticket roll number as studentId (since they don't have Replit auth)
-      const studentId = `student_${hallTicket.rollNumber}`;
+      // Look up student by email first to find existing users
+      let studentUser = await storage.getUserByEmail(hallTicket.studentEmail);
       
-      // Create or get the student user record
-      let studentUser = await storage.getUser(studentId);
+      // If user doesn't exist, create one with roll number format
       if (!studentUser) {
+        const studentId = `student_${hallTicket.rollNumber}`;
         studentUser = await storage.upsertUser({
           id: studentId,
           email: hallTicket.studentEmail,
@@ -189,6 +189,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           role: 'student',
         });
       }
+      
+      const studentId = studentUser.id;
       
       // Prepare data with studentId and convert startTime to Date
       const sessionData = {
