@@ -20,7 +20,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin authentication routes
   app.post('/api/auth/login', login);
   app.post('/api/auth/logout', logout);
-  app.get('/api/auth/user', getAuthUser);
+  app.get('/api/auth/user', requireAdmin, getAuthUser);
 
   // Hall ticket routes
   app.post('/api/hall-tickets', requireAdmin, async (req: any, res) => {
