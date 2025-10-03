@@ -281,19 +281,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/exam-sessions/:id/questions', async (req, res) => {
     try {
       const { id } = req.params;
-      const session = await storage.getExamSession(id);
+      let session = await storage.getExamSession(id);
       
       if (!session) {
         return res.status(404).json({ message: "Exam session not found" });
       }
 
       // Get the questions based on the session's questionIds
-      const questionIds = session.questionIds as string[];
+      let questionIds = session.questionIds as string[];
+      
+      // If no questions assigned, assign them now (handles old sessions)
       if (!questionIds || !Array.isArray(questionIds) || questionIds.length === 0) {
-        return res.status(400).json({ 
-          message: "No questions assigned to this exam session",
-          error: "NO_QUESTIONS_ASSIGNED"
-        });
+        console.log('No questions assigned to session, assigning now...');
+        
+        // Get the hall ticket to know exam details
+        const hallTicket = await storage.getHallTicketById(session.hallTicketId);
+        if (!hallTicket) {
+          return res.status(400).json({ 
+            message: "Hall ticket not found for this session",
+            error: "HALL_TICKET_NOT_FOUND"
+          });
+        }
+        
+        // Get randomized questions for this exam
+        let examQuestions = await storage.getRandomQuestions(hallTicket.examName, hallTicket.totalQuestions);
+        
+        // If no questions found for specific exam name, fallback to any available questions
+        if (!examQuestions || examQuestions.length === 0) {
+          console.log(`No questions found for "${hallTicket.examName}", trying fallback to all questions`);
+          const allQuestions = await storage.getAllQuestions();
+          
+          if (allQuestions.length === 0) {
+            return res.status(400).json({ 
+              message: "No questions available in the system. Please contact the administrator to add questions.",
+              error: "NO_QUESTIONS_IN_SYSTEM"
+            });
+          }
+          
+          // Use random questions from all available
+          const shuffled = allQuestions.sort(() => 0.5 - Math.random());
+          const limit = Math.min(hallTicket.totalQuestions || 20, allQuestions.length);
+          examQuestions = shuffled.slice(0, limit);
+          
+          console.log(`Using ${examQuestions.length} fallback questions for exam`);
+        }
+        
+        questionIds = examQuestions.map(q => q.id);
+        
+        // Update the session with the question IDs
+        session = await storage.updateExamSession(id, { questionIds: questionIds });
+        console.log(`Assigned ${questionIds.length} questions to session ${id}`);
       }
 
       // Fetch questions but don't return correct answers to students
