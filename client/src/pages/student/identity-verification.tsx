@@ -359,7 +359,8 @@ export default function IdentityVerification() {
       });
 
       if (!response.ok) {
-        throw new Error(`Verification failed with status ${response.status}`);
+        const error = await response.json();
+        throw new Error(error.message || `Verification failed with status ${response.status}`);
       }
 
       const result = await response.json();
@@ -367,18 +368,23 @@ export default function IdentityVerification() {
 
       setVerificationResult(result);
 
+      // Proceed if backend confirms documents are valid
       if (result.isValid) {
         setDocumentVerificationStatus('verified');
         setVerificationStep('complete');
+        
+        const confidencePercent = result.confidence ? Math.round(result.confidence * 100) : 85;
+        const message = result.reasons?.[0] || `Identity verified with ${confidencePercent}% confidence. You can now start your exam.`;
+        
         toast({
-          title: "Verification Successful! ✅",
-          description: `Identity verified with ${result.confidence ? Math.round(result.confidence * 100) : 85}% confidence. You can now start your exam.`,
+          title: "Verification Complete! ✅",
+          description: message,
         });
       } else {
         setDocumentVerificationStatus('failed');
         toast({
           title: "Verification Failed",
-          description: result.reasons?.join('. ') || "Name or photo does not match. Please upload a clear ID and try again.",
+          description: result.reasons?.join('. ') || "Identity verification failed. Please check your documents and try again.",
           variant: "destructive",
         });
       }
@@ -389,7 +395,7 @@ export default function IdentityVerification() {
       
       toast({
         title: "Verification Error",
-        description: "Failed to verify identity. Please try again or use manual verification.",
+        description: error instanceof Error ? error.message : "Failed to verify identity. Please try manual verification.",
         variant: "destructive",
       });
     }
@@ -445,16 +451,27 @@ export default function IdentityVerification() {
       });
 
       if (!response.ok) {
-        throw new Error(`Storage failed with status ${response.status}`);
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to save document');
       }
 
-      setDocumentVerificationStatus('verified');
-      setVerificationStep('complete');
+      const result = await response.json();
       
-      toast({
-        title: "Document Saved ✅",
-        description: "Your ID has been saved for manual verification. You can now start your exam.",
-      });
+      if (result.success) {
+        setDocumentVerificationStatus('verified');
+        setVerificationStep('complete');
+        
+        const message = result.stored 
+          ? "Your ID has been saved for admin review. You can now start your exam."
+          : "Your documents have been received. You can proceed to your exam while we process them.";
+        
+        toast({
+          title: "Documents Saved ✅",
+          description: message,
+        });
+      } else {
+        throw new Error('Document storage failed');
+      }
 
     } catch (error) {
       console.error("Manual verification error:", error);
@@ -462,7 +479,7 @@ export default function IdentityVerification() {
       
       toast({
         title: "Save Failed",
-        description: "Failed to save document. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to save document. Please try again.",
         variant: "destructive",
       });
     }
