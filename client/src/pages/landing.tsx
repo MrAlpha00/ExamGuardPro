@@ -33,7 +33,7 @@ export default function Landing() {
             </li>
             <li>
               <Button 
-                onClick={() => window.location.href = "/hall-ticket"}
+                onClick={() => window.location.href = "/student/start"}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
                 data-testid="button-student-login"
               >
@@ -69,7 +69,7 @@ export default function Landing() {
                   Admin
                 </Button>
                 <Button 
-                  onClick={() => window.location.href = "/hall-ticket"}
+                  onClick={() => window.location.href = "/student/start"}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white flex-1"
                 >
                   Student Login
@@ -91,7 +91,7 @@ export default function Landing() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
-              onClick={() => window.location.href = "/hall-ticket"}
+              onClick={() => window.location.href = "/student/start"}
               className="bg-white text-indigo-600 hover:bg-gray-100 px-8 py-3 text-lg"
               data-testid="button-start-exam"
             >
