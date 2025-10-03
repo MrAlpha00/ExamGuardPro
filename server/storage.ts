@@ -354,11 +354,15 @@ export class DatabaseStorage implements IStorage {
   async storeIdentityVerification(hallTicketId: string, verificationData: any): Promise<void> {
     // Store the verification data in an exam session for admin review
     try {
+      console.log('Starting storeIdentityVerification for hall ticket:', hallTicketId);
+      
       // First, get the hall ticket
       const hallTicket = await this.getHallTicketById(hallTicketId);
       if (!hallTicket) {
         throw new Error('Hall ticket not found');
       }
+
+      console.log('Hall ticket found:', hallTicket.hallTicketId, 'for student:', hallTicket.studentName);
 
       // Check if there's an existing user with this email
       const studentEmail = hallTicket.studentEmail;
@@ -372,22 +376,34 @@ export class DatabaseStorage implements IStorage {
 
       // If student doesn't exist, create a basic user record
       if (!studentId) {
+        console.log('Creating new user for email:', studentEmail);
+        
+        // Generate a UUID for the student
+        const { nanoid } = await import('nanoid');
+        const userId = `student_${nanoid(16)}`;
+        
+        const nameParts = hallTicket.studentName.split(' ');
         const [newUser] = await db
           .insert(users)
           .values({
+            id: userId,
             email: studentEmail,
-            firstName: hallTicket.studentName.split(' ')[0],
-            lastName: hallTicket.studentName.split(' ').slice(1).join(' ') || '',
+            firstName: nameParts[0] || hallTicket.studentName,
+            lastName: nameParts.slice(1).join(' ') || '',
             role: 'student',
           })
           .returning();
         studentId = newUser.id;
+        console.log('Created new user with ID:', studentId);
+      } else {
+        console.log('Found existing user with ID:', studentId);
       }
 
       // Find or create exam session
       let examSession = await this.getExamSessionByStudent(studentId, hallTicketId);
       
       if (!examSession) {
+        console.log('Creating new exam session for student:', studentId);
         examSession = await this.createExamSession({
           hallTicketId: hallTicketId,
           studentId: studentId,
@@ -395,14 +411,16 @@ export class DatabaseStorage implements IStorage {
           verificationData: verificationData,
           isVerified: false,
         });
+        console.log('Created exam session with ID:', examSession.id);
       } else {
+        console.log('Updating existing exam session:', examSession.id);
         // Update existing session with verification data
         await this.updateExamSession(examSession.id, {
           verificationData: verificationData,
         });
       }
 
-      console.log(`Stored identity verification for hall ticket ${hallTicketId} in exam session ${examSession.id}`);
+      console.log(`Successfully stored identity verification for hall ticket ${hallTicketId} in exam session ${examSession.id}`);
     } catch (error) {
       console.error('Error storing identity verification:', error);
       throw error;
