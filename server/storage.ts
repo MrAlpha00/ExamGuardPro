@@ -30,8 +30,10 @@ export interface IStorage {
   createHallTicket(hallTicket: InsertHallTicket): Promise<HallTicket>;
   getHallTicketByQR(qrData: string): Promise<HallTicket | undefined>;
   getHallTicketById(id: string): Promise<HallTicket | undefined>;
+  getHallTicketByIdAndRoll(hallTicketId: string, rollNumber: string): Promise<HallTicket | undefined>;
   getHallTicketsByCreator(creatorId: string): Promise<HallTicket[]>;
   updateHallTicket(id: string, updates: Partial<InsertHallTicket>): Promise<HallTicket>;
+  deleteHallTicket(id: string): Promise<void>;
   
   // Exam session operations
   createExamSession(session: InsertExamSession): Promise<ExamSession>;

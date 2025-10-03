@@ -580,7 +580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Identity verification error:", error);
       res.status(500).json({ 
         message: "Identity verification failed",
-        error: error.message 
+        error: error instanceof Error ? error.message : "Unknown error"
       });
     }
   });
