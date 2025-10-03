@@ -391,9 +391,8 @@ export class DatabaseStorage implements IStorage {
         console.log('Creating new user for email:', studentEmail);
         
         try {
-          // Generate a UUID for the student
-          const { nanoid } = await import('nanoid');
-          const userId = `student_${nanoid(16)}`;
+          // Use roll number for student ID to match exam session creation
+          const userId = `student_${hallTicket.rollNumber}`;
           
           const nameParts = hallTicket.studentName.split(' ');
           const [newUser] = await db
