@@ -4,6 +4,34 @@ SecureExam is a comprehensive online examination platform designed to provide se
 
 The platform serves two primary user types: administrators who create and monitor exams, and students who take authenticated examinations under controlled conditions.
 
+# Recent Changes (October 3, 2025)
+
+## Initial Replit Setup
+- Successfully imported from GitHub
+- Created PostgreSQL database using Replit's built-in database service
+- Pushed database schema using `npm run db:push`
+- Configured workflow to run on port 5000 with webview output
+- Server configured to bind to 0.0.0.0:5000 for Replit proxy compatibility
+- Vite configured with `allowedHosts: true` for Replit iframe preview
+- Added `server/admin-credentials.json` to .gitignore for security
+- Deployment configuration set to "autoscale" deployment target
+
+## Development Setup
+For local development, the application uses file-based admin credentials from `server/admin-credentials.json`. The demo credentials are:
+- Email: `admin@secureexam.com`
+- Password: `Admin1230`
+
+## Production Deployment
+For production deployments, set these environment variables:
+- `JWT_SECRET`: A strong random secret (min 32 characters)
+- `ADMIN_EMAIL`: Admin email address
+- `ADMIN_PASSWORD_HASH`: Bcrypt hash of admin password
+- `DATABASE_URL`: PostgreSQL connection string
+- `NODE_ENV`: Set to "production"
+- `OPENAI_API_KEY`: (Optional, for AI verification features)
+
+The application enforces environment-based credentials in production and will refuse to start without them.
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -33,10 +61,11 @@ Preferred communication style: Simple, everyday language.
 ## Key Features Architecture
 
 ### Authentication & Authorization
-- OAuth-based authentication through Replit's identity provider
+- JWT-based authentication for admin users (portable, works on any platform)
 - Role-based access control (admin/student roles)
 - Session management with PostgreSQL storage
 - Middleware-based route protection
+- Students authenticate using QR code-based hall tickets
 
 ### QR Code System
 - Hall ticket generation with embedded metadata (student info, exam details, timestamps)
@@ -63,12 +92,13 @@ Preferred communication style: Simple, everyday language.
 
 ## External Dependencies
 
-- **Database**: Neon PostgreSQL serverless database
-- **Authentication**: Replit OAuth service for user authentication
+- **Database**: PostgreSQL (Replit's built-in database service in development, Neon or other providers for production)
+- **Authentication**: JWT-based authentication (portable across platforms)
 - **UI Components**: Radix UI primitives for accessible component foundation
-- **Styling**: Tailwind CSS for utility-first styling approach
+- **Styling**: Tailwind CSS with custom design system
 - **QR Code Generation**: qrcode library for hall ticket QR generation
 - **Face Detection**: Browser native APIs for real-time face recognition
 - **WebSocket**: Native WebSocket API for real-time communication
 - **File Upload**: Browser File API for identity verification
 - **Session Management**: PostgreSQL-backed sessions via connect-pg-simple
+- **Password Hashing**: bcrypt for secure password storage

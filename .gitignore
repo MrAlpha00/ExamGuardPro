@@ -13,6 +13,9 @@ server/public
 .env.local
 .env.*.local
 
+# Admin credentials (development only)
+server/admin-credentials.json
+
 # Editor directories
 .vscode/*
 !.vscode/extensions.json
