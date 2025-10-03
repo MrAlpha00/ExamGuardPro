@@ -80,13 +80,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    // separate id so it is NOT updated if conflict happens
+    const { id, ...rest } = userData;
+
     const [user] = await db
       .insert(users)
-      .values(userData)
+      .values(userData) // insert can still use id
       .onConflictDoUpdate({
-        target: users.email, // 👈 use email instead of id
+        target: users.email,  // conflict is on email
         set: {
-          ...userData,
+          ...rest,            // update all fields EXCEPT id
           updatedAt: new Date(),
         },
       })
@@ -94,6 +97,7 @@ export class DatabaseStorage implements IStorage {
 
     return user;
   }
+
 
   // Hall ticket operations
   async createHallTicket(hallTicket: InsertHallTicket): Promise<HallTicket> {
