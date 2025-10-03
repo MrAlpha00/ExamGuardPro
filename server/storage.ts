@@ -67,6 +67,9 @@ export interface IStorage {
     securityAlerts: number;
     averageProgress: number;
   }>;
+
+  // Identity verification storage
+  storeIdentityVerification(hallTicketId: string, verificationData: any): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -345,6 +348,65 @@ export class DatabaseStorage implements IStorage {
       securityAlerts: securityAlertsResult.count,
       averageProgress,
     };
+  }
+
+  // Store identity verification data for manual review
+  async storeIdentityVerification(hallTicketId: string, verificationData: any): Promise<void> {
+    // Store the verification data in an exam session for admin review
+    try {
+      // First, get the hall ticket
+      const hallTicket = await this.getHallTicketById(hallTicketId);
+      if (!hallTicket) {
+        throw new Error('Hall ticket not found');
+      }
+
+      // Check if there's an existing user with this email
+      const studentEmail = hallTicket.studentEmail;
+      const studentUser = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, studentEmail))
+        .limit(1);
+
+      let studentId = studentUser[0]?.id;
+
+      // If student doesn't exist, create a basic user record
+      if (!studentId) {
+        const [newUser] = await db
+          .insert(users)
+          .values({
+            email: studentEmail,
+            firstName: hallTicket.studentName.split(' ')[0],
+            lastName: hallTicket.studentName.split(' ').slice(1).join(' ') || '',
+            role: 'student',
+          })
+          .returning();
+        studentId = newUser.id;
+      }
+
+      // Find or create exam session
+      let examSession = await this.getExamSessionByStudent(studentId, hallTicketId);
+      
+      if (!examSession) {
+        examSession = await this.createExamSession({
+          hallTicketId: hallTicketId,
+          studentId: studentId,
+          status: 'not_started',
+          verificationData: verificationData,
+          isVerified: false,
+        });
+      } else {
+        // Update existing session with verification data
+        await this.updateExamSession(examSession.id, {
+          verificationData: verificationData,
+        });
+      }
+
+      console.log(`Stored identity verification for hall ticket ${hallTicketId} in exam session ${examSession.id}`);
+    } catch (error) {
+      console.error('Error storing identity verification:', error);
+      throw error;
+    }
   }
 }
 

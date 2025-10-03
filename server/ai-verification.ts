@@ -136,7 +136,7 @@ export async function verifyIDDocument(
     console.error("ID verification error:", error);
     
     // Secure timeout handling: No auto-approval in production
-    if (error.message && error.message.includes('timeout')) {
+    if (error instanceof Error && error.message && error.message.includes('timeout')) {
       console.log("AI verification timed out - security failure");
       
       // NEVER auto-approve in production for security
@@ -162,7 +162,7 @@ export async function verifyIDDocument(
       confidence: 0,
       extractedData: {},
       faceMatch: { matches: false, confidence: 0 },
-      reasons: [`Verification failed: ${error.message}`]
+      reasons: [`Verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`]
     };
   }
 }

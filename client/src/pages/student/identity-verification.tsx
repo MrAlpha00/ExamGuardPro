@@ -198,58 +198,53 @@ export default function IdentityVerification() {
       return;
     }
     
-    setDocumentFile(file);
     setDocumentVerificationStatus('verifying');
     
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setDocumentPreview(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-    
     try {
+      // Create preview and wait for it to complete
+      const preview = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      
+      setDocumentPreview(preview);
+      
       // Analyze document quality
       const analysis = await analyzeDocument(file);
       
-      // Immediately process without delay for faster verification
       if (analysis.quality === 'poor') {
         setDocumentVerificationStatus('failed');
+        setDocumentFile(null);
+        setDocumentUploaded(false);
         toast({
           title: "Document Quality Issues",
           description: `Please upload a clearer image. Issues: ${analysis.issues.join(', ')}`,
           variant: "destructive",
         });
-      } else {
-        // Instead of auto-completing, trigger AI verification immediately
-        if (capturedPhoto) {
-          performAIVerification();
-        } else {
-          setDocumentVerificationStatus('verified');
-          setDocumentUploaded(true);
-          
-          let message = "ID document uploaded successfully!";
-          if (analysis.issues.length > 0) {
-            message += ` Note: ${analysis.issues.join(', ')}`;
-          }
-          
-          // Auto-trigger verification ONLY in test mode for security
-          if (TEST_MODE && cameraError && cameraError.includes('NotFoundError')) {
-            message += " Auto-verifying without camera (TEST MODE)...";
-            setTimeout(() => performAIVerification(), 1000);
-          } else {
-            message += " Now capture your photo for AI verification.";
-          }
-          
-          toast({
-            title: "Document Uploaded",
-            description: message,
-          });
-        }
+        return;
       }
+      
+      // Now set the file after all checks pass
+      setDocumentFile(file);
+      setDocumentUploaded(true);
+      setDocumentVerificationStatus('verified');
+      
+      let message = "ID document uploaded successfully!";
+      if (analysis.issues.length > 0) {
+        message += ` Note: ${analysis.issues.join(', ')}`;
+      }
+      
+      toast({
+        title: "Document Uploaded",
+        description: message,
+      });
       
     } catch (error) {
       setDocumentVerificationStatus('failed');
+      setDocumentFile(null);
+      setDocumentUploaded(false);
       toast({
         title: "Verification Failed",
         description: "Failed to process the document. Please try again.",
@@ -294,7 +289,7 @@ export default function IdentityVerification() {
     });
   };
 
-  // Fast AI verification function (5-10 seconds max)
+  // AI verification function with proper error handling
   const performAIVerification = async () => {
     if (!hallTicketData) {
       toast({
@@ -311,43 +306,39 @@ export default function IdentityVerification() {
         description: "Please upload your ID document first",
         variant: "destructive",
       });
+      setDocumentVerificationStatus('failed');
+      return;
+    }
+
+    if (!capturedPhoto) {
+      toast({
+        title: "Error",
+        description: "Please capture your photo first",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
+      setDocumentVerificationStatus('verifying');
       setVerificationResult(null);
       
-      // Use placeholder photo ONLY in test mode for security
-      let photoToUse = capturedPhoto;
-      if (!photoToUse && TEST_MODE) {
-        photoToUse = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="; // 1x1 pixel placeholder
-        console.log("Using placeholder photo for verification (TEST MODE ONLY)");
-      }
-
-      if (!photoToUse) {
-        toast({
-          title: "Error",
-          description: "Please capture your photo first or enable camera",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log("Starting fast AI verification...");
+      console.log("Starting AI verification...");
       
       // Convert document file to base64
-      const documentBase64 = await new Promise<string>((resolve) => {
+      const documentBase64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
           const result = e.target?.result as string;
           const base64 = result.split(',')[1]; // Remove data:image/... prefix
           resolve(base64);
         };
+        reader.onerror = reject;
         reader.readAsDataURL(documentFile);
       });
 
       // Extract base64 from photo (remove data URL prefix if present)
-      const photoBase64 = photoToUse.includes(',') ? photoToUse.split(',')[1] : photoToUse;
+      const photoBase64 = capturedPhoto.includes(',') ? capturedPhoto.split(',')[1] : capturedPhoto;
 
       const requestData = {
         idCardImage: documentBase64,
@@ -357,7 +348,7 @@ export default function IdentityVerification() {
         hallTicketId: hallTicketData.id
       };
 
-      console.log("Calling fast verification API...");
+      console.log("Calling verification API...");
       
       const response = await fetch('/api/verify-identity', {
         method: 'POST',
@@ -367,50 +358,113 @@ export default function IdentityVerification() {
         body: JSON.stringify(requestData),
       });
 
+      if (!response.ok) {
+        throw new Error(`Verification failed with status ${response.status}`);
+      }
+
       const result = await response.json();
       console.log("Verification result:", result);
 
       setVerificationResult(result);
 
       if (result.isValid) {
+        setDocumentVerificationStatus('verified');
         setVerificationStep('complete');
         toast({
           title: "Verification Successful! ✅",
-          description: `Identity verified in ${result.confidence ? Math.round(result.confidence * 100) : 85}% confidence. You can now start your exam.`,
+          description: `Identity verified with ${result.confidence ? Math.round(result.confidence * 100) : 85}% confidence. You can now start your exam.`,
         });
       } else {
+        setDocumentVerificationStatus('failed');
         toast({
           title: "Verification Failed",
-          description: result.reasons?.join('. ') || "Unable to verify identity. Please try again.",
+          description: result.reasons?.join('. ') || "Name or photo does not match. Please upload a clear ID and try again.",
           variant: "destructive",
         });
       }
 
     } catch (error) {
       console.error("Verification error:", error);
+      setDocumentVerificationStatus('failed');
       
-      // Fast fallback: Auto-approve if API fails for speed
-      if (TEST_MODE) {
-        console.log("API failed, using fallback approval for test mode");
-        setVerificationResult({
-          isValid: true,
-          confidence: 0.7,
-          extractedData: { name: hallTicketData.studentName },
-          faceMatch: { matches: true, confidence: 0.7 },
-          reasons: ["Fallback approval: API unavailable"]
-        });
-        setVerificationStep('complete');
-        toast({
-          title: "Verification Complete ✅",
-          description: "Fast approval applied. You can now start your exam.",
-        });
-      } else {
-        toast({
-          title: "Verification Error",
-          description: "Failed to verify identity. Please try again.",
-          variant: "destructive",
-        });
+      toast({
+        title: "Verification Error",
+        description: "Failed to verify identity. Please try again or use manual verification.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Manual verification - just save the ID for admin review
+  const skipToManualVerification = async () => {
+    if (!hallTicketData) {
+      toast({
+        title: "Error",
+        description: "Hall ticket data missing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!documentFile || !documentPreview) {
+      toast({
+        title: "Error",
+        description: "Please upload your ID document first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setDocumentVerificationStatus('verifying');
+      
+      // Convert document file to base64
+      const documentBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target?.result as string;
+          resolve(result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(documentFile);
+      });
+
+      // Store the document for manual verification
+      const response = await fetch('/api/store-identity-document', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          hallTicketId: hallTicketData.id,
+          studentName: hallTicketData.studentName,
+          rollNumber: hallTicketData.rollNumber,
+          documentImage: documentBase64,
+          selfieImage: capturedPhoto || null,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Storage failed with status ${response.status}`);
       }
+
+      setDocumentVerificationStatus('verified');
+      setVerificationStep('complete');
+      
+      toast({
+        title: "Document Saved ✅",
+        description: "Your ID has been saved for manual verification. You can now start your exam.",
+      });
+
+    } catch (error) {
+      console.error("Manual verification error:", error);
+      setDocumentVerificationStatus('failed');
+      
+      toast({
+        title: "Save Failed",
+        description: "Failed to save document. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -761,6 +815,41 @@ export default function IdentityVerification() {
               </CardContent>
             </Card>
 
+            {/* Verification Actions */}
+            {capturedPhoto && documentUploaded && verificationStep !== 'complete' && (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardHeader>
+                  <CardTitle className="text-blue-900">Ready for Verification</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-blue-800">
+                    You can verify your identity automatically using AI, or save your documents for manual verification by the admin.
+                  </p>
+                  <div className="space-y-2">
+                    <Button 
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={performAIVerification}
+                      disabled={documentVerificationStatus === 'verifying'}
+                      data-testid="button-ai-verify"
+                    >
+                      <i className="fas fa-robot mr-2"></i>
+                      {documentVerificationStatus === 'verifying' ? 'Verifying...' : 'AI Verification (Automatic)'}
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      className="w-full border-blue-300 text-blue-700 hover:bg-blue-100"
+                      onClick={skipToManualVerification}
+                      disabled={documentVerificationStatus === 'verifying'}
+                      data-testid="button-manual-verify"
+                    >
+                      <i className="fas fa-user-check mr-2"></i>
+                      Skip to Manual Verification
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Action Buttons */}
             <div className="flex space-x-4">
               <Button 
@@ -770,6 +859,9 @@ export default function IdentityVerification() {
                   // Reset verification
                   setCapturedPhoto(null);
                   setDocumentUploaded(false);
+                  setDocumentFile(null);
+                  setDocumentPreview(null);
+                  setDocumentVerificationStatus('pending');
                   setVerificationStep('camera');
                   if (cameraActive) stopCamera();
                 }}
@@ -779,7 +871,7 @@ export default function IdentityVerification() {
               </Button>
               <Button 
                 className="flex-1 bg-primary hover:opacity-90"
-                disabled={!capturedPhoto || !documentUploaded}
+                disabled={verificationStep !== 'complete'}
                 onClick={handleContinueToExam}
                 data-testid="button-continue"
               >

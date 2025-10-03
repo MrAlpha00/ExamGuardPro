@@ -585,6 +585,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Store identity documents for manual verification
+  app.post('/api/store-identity-document', async (req, res) => {
+    try {
+      const { hallTicketId, studentName, rollNumber, documentImage, selfieImage } = req.body;
+      
+      if (!hallTicketId || !studentName || !documentImage) {
+        return res.status(400).json({ 
+          message: "Missing required fields: hallTicketId, studentName, and documentImage are required" 
+        });
+      }
+
+      // Prepare verification data for storage
+      const verificationData = {
+        studentName,
+        rollNumber,
+        documentImage,
+        selfieImage,
+        uploadedAt: new Date().toISOString(),
+        verificationType: 'manual',
+        status: 'pending_manual_review'
+      };
+
+      // Store in database for admin review
+      await storage.storeIdentityVerification(hallTicketId, verificationData);
+      
+      console.log(`Stored identity document for manual verification: ${studentName} (${rollNumber})`);
+      
+      res.json({ 
+        success: true,
+        message: "Identity document stored for manual verification",
+        verificationData: {
+          uploadedAt: verificationData.uploadedAt,
+          status: verificationData.status
+        }
+      });
+    } catch (error) {
+      console.error("Document storage error:", error);
+      res.status(500).json({ 
+        message: "Failed to store document",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Create HTTP server
   const httpServer = createServer(app);
 
