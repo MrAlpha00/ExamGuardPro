@@ -15,10 +15,6 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 32779
-externalPort = 5000
-
-[[ports]]
 localPort = 34131
 externalPort = 3003
 
@@ -54,7 +50,7 @@ integrations = ["javascript_database:1.0.0", "javascript_websocket:1.0.0", "java
 expertMode = true
 
 [workflows]
-runButton = "Start application"
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Project"
@@ -73,3 +69,6 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
