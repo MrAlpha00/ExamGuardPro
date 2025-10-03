@@ -84,13 +84,14 @@ export class DatabaseStorage implements IStorage {
       .insert(users)
       .values(userData)
       .onConflictDoUpdate({
-        target: users.email,
+        target: users.email, // 👈 use email instead of id
         set: {
           ...userData,
           updatedAt: new Date(),
         },
       })
       .returning();
+
     return user;
   }
 
