@@ -42,7 +42,7 @@ This project combines **modern web technologies** and **cloud deployment** to de
 ### A. Run Locally (VS Code)
 1. Clone the repository:
    ```bash
-   git clone https://github.com/<your-username>/ExamGuardPro.git
+   git clone https://github.com/MrAlpha00/ExamGuardPro.git
    cd ExamGuardPro
    ```
 
@@ -129,4 +129,4 @@ ExamGuardPro/
 
 ## 👨‍💻 Author
 Built with ❤️ by **Suhas M**  
-📧 Contact: [admin@secureexam.com](mailto:admin@secureexam.com)
+📧 Contact: [admin@secureexam.com](mailto:sm4686771@gmail.com)
