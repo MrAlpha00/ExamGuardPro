@@ -36,8 +36,9 @@ export default function Results() {
   const completedSessions = sessions.filter((session: any) => session.status === "completed");
 
   const getResultsForSession = (session: any) => {
-    // Filter questions based on hall ticket data or use all questions
-    const sessionQuestions = questions.length > 0 ? questions : [];
+    // Filter questions to only include those that were part of this exam session
+    const sessionQuestionIds = Array.isArray(session.questionIds) ? session.questionIds : [];
+    const sessionQuestions = questions.filter(q => sessionQuestionIds.includes(q.id));
     
     // Bypass strict typing for now - focus on functionality
     return generateExamReport(session as any, sessionQuestions);
