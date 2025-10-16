@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import WebcamMonitor from "@/components/webcam-monitor";
@@ -15,13 +16,18 @@ interface HallTicketData {
   rollNumber: string;
   examDate: string;
   duration: number;
+  studentIdBarcode?: string;
 }
 
 export default function IdentityVerification() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [hallTicketData, setHallTicketData] = useState<HallTicketData | null>(null);
-  const [verificationStep, setVerificationStep] = useState<'camera' | 'photo' | 'document' | 'complete'>('camera');
+  const [verificationStep, setVerificationStep] = useState<'barcode' | 'camera' | 'photo' | 'document' | 'complete'>('barcode');
+  const [barcodeScanned, setBarcodeScanned] = useState(false);
+  const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
+  const [manualBarcodeEntry, setManualBarcodeEntry] = useState(false);
+  const [manualBarcodeValue, setManualBarcodeValue] = useState("");
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [documentUploaded, setDocumentUploaded] = useState(false);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
@@ -62,6 +68,15 @@ export default function IdentityVerification() {
     }
   }, [setLocation, toast]);
 
+  // Check if barcode verification is required, skip if not
+  useEffect(() => {
+    if (hallTicketData && !hallTicketData.studentIdBarcode) {
+      // No barcode required, skip to camera step
+      setVerificationStep('camera');
+      setBarcodeScanned(true);
+    }
+  }, [hallTicketData]);
+
   // Auto-start camera when component loads (or bypass in test mode if camera error)
   useEffect(() => {
     startCamera();
@@ -85,6 +100,45 @@ export default function IdentityVerification() {
       }
     }
   }, [TEST_MODE, cameraError, documentUploaded, documentVerificationStatus, toast]);
+
+  const handleBarcodeValidation = (barcode: string) => {
+    if (!hallTicketData?.studentIdBarcode) {
+      // No barcode required, proceed
+      setBarcodeScanned(true);
+      setVerificationStep('camera');
+      return;
+    }
+
+    if (barcode.trim() === hallTicketData.studentIdBarcode.trim()) {
+      // Barcode matches
+      setScannedBarcode(barcode);
+      setBarcodeScanned(true);
+      setVerificationStep('camera');
+      toast({
+        title: "Barcode Verified",
+        description: "Student ID barcode verified successfully",
+      });
+    } else {
+      // Barcode mismatch
+      toast({
+        title: "Invalid ID Verification",
+        description: "The scanned barcode does not match your student ID. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleManualBarcodeSubmit = () => {
+    if (!manualBarcodeValue.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter your student ID barcode",
+        variant: "destructive",
+      });
+      return;
+    }
+    handleBarcodeValidation(manualBarcodeValue);
+  };
 
   const handleCapturePhoto = async () => {
     try {
@@ -554,6 +608,73 @@ export default function IdentityVerification() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Verification Process */}
           <div className="space-y-6">
+            {/* Barcode Scanning - only show if barcode is required */}
+            {hallTicketData?.studentIdBarcode && !barcodeScanned && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <i className="fas fa-barcode text-accent"></i>
+                    <span>Scan Student ID Barcode</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="border-2 border-dashed border-border rounded-xl p-6 text-center bg-muted">
+                      <i className="fas fa-barcode text-4xl text-muted-foreground mb-4"></i>
+                      <p className="font-medium mb-2">Scan or enter your student ID barcode</p>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        This verifies your identity using your college ID card
+                      </p>
+                      
+                      {!manualBarcodeEntry ? (
+                        <div className="space-y-3">
+                          <div id="barcode-reader" className="w-full"></div>
+                          <div className="flex gap-2 justify-center">
+                            <Button
+                              onClick={() => setManualBarcodeEntry(true)}
+                              variant="outline"
+                              data-testid="button-manual-barcode"
+                            >
+                              <i className="fas fa-keyboard mr-2"></i>
+                              Enter Manually
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <Input
+                            placeholder="Enter student ID barcode"
+                            value={manualBarcodeValue}
+                            onChange={(e) => setManualBarcodeValue(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleManualBarcodeSubmit()}
+                            data-testid="input-manual-barcode"
+                          />
+                          <div className="flex gap-2 justify-center">
+                            <Button
+                              onClick={handleManualBarcodeSubmit}
+                              className="bg-accent hover:opacity-90"
+                              data-testid="button-submit-barcode"
+                            >
+                              <i className="fas fa-check mr-2"></i>
+                              Verify Barcode
+                            </Button>
+                            <Button
+                              onClick={() => setManualBarcodeEntry(false)}
+                              variant="outline"
+                              data-testid="button-scan-barcode"
+                            >
+                              <i className="fas fa-camera mr-2"></i>
+                              Scan Instead
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
             {/* Live Photo Capture */}
             <Card>
               <CardHeader>
