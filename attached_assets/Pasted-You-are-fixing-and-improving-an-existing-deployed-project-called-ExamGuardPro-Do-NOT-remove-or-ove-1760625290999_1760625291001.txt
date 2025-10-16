@@ -1,0 +1,53 @@
+You are fixing and improving an existing deployed project called ExamGuardPro.
+Do NOT remove or overwrite any existing working code or logic.
+Only add the missing features and fix specific issues described below.
+
+---
+### ✅ CURRENT STATE
+The project is deployed on Render and most core features work:
+- Admin login, hall ticket generation, student login, QR authentication, exam start, and submission.
+- Database and build commands are correct.
+But after the last agent run, the exam auto-submits immediately and admin functions disappeared.
+
+---
+### 🧩 FIX THESE ISSUES
+
+1. **Exam Auto-Submit Bug**
+   - When student taps "Start Exam", it should not auto-submit immediately.
+   - Fix the exam-start logic so the exam begins normally and only submits when:
+     - Timer runs out, OR
+     - Student leaves fullscreen, OR
+     - Admin flags student, OR
+     - Student manually submits.
+
+2. **Hall Ticket Handling**
+   - Keep the working behavior where used hall tickets move to “Bin” after submission.
+   - Prevent multiple logins for the same hall ticket.
+
+3. **Admin Features Missing**
+   - Restore all admin panel pages (Active Students, Incident Management, Alerts, Results, etc.).
+   - All buttons, lists, and live camera views must work again.
+
+4. **Add New Feature — ID Card Barcode Verification**
+   - In Admin Panel → While generating hall ticket → add a new input field:
+     “Attach Student ID Barcode” (store this value in the database).
+   - In Student Identity Verification → add “Scan College ID Barcode” option.
+   - Use the device camera to scan the barcode using a JS library (choose `quaggaJS`, `html5-qrcode`, or `jsQR`).
+   - When student scans, validate that the scanned barcode matches the one stored by admin.
+   - If match → continue to live capture → then start exam.
+   - If mismatch → show error “Invalid ID verification”.
+
+5. **Exam Timer & Incident Monitoring**
+   - Re-enable timer and ensure exam auto-submits when time ends.
+   - Incident Management must record and display live incidents.
+
+---
+
+### ⚙️ RULES
+- Don’t delete or rename working routes, components, or database schemas.
+- Only append or reconnect missing functions.
+- Test that deployment still builds with same commands and runs correctly.
+- Output must include all fixed/added code and explain what was changed.
+
+---
+GOAL: Keep all existing features working, fix the auto-submit bug, restore admin panel, and add the barcode ID verification system.
