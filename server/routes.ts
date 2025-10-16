@@ -205,6 +205,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if session already exists
       const existingSession = await storage.getExamSessionByStudent(studentId, data.hallTicketId);
       if (existingSession) {
+        // Mark hall ticket as inactive even for existing sessions
+        await storage.updateHallTicket(hallTicket.id, { isActive: false });
         return res.json(existingSession);
       }
 
@@ -240,6 +242,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const examSession = await storage.createExamSession(sessionDataWithQuestions);
+
+      // Mark hall ticket as inactive to prevent reuse
+      await storage.updateHallTicket(hallTicket.id, { isActive: false });
 
       res.json(examSession);
     } catch (error) {
@@ -1014,6 +1019,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`Policy update: ${data.data.action} for session ${data.data.sessionId}`);
           } catch (error) {
             console.error('Error handling policy update:', error);
+          }
+        }
+        
+        // Handle admin actions (flag student or resolve incident)
+        if (data.type === 'admin_action') {
+          try {
+            // Validate admin authorization
+            if (ws.type !== 'admin') {
+              console.error('Unauthorized: Only admins can send admin actions');
+              return;
+            }
+            
+            // Validate required fields
+            if (!data.data.sessionId || !data.data.action) {
+              console.error('Invalid admin action: missing sessionId or action');
+              return;
+            }
+            
+            // Broadcast action to the specific student's session
+            wss.clients.forEach((client: WebSocketClient) => {
+              if (client.readyState === WebSocket.OPEN && 
+                  client.type === 'student' && 
+                  client.sessionId === data.data.sessionId) {
+                client.send(JSON.stringify({
+                  type: 'admin_action',
+                  data: {
+                    action: data.data.action, // 'flag' or 'resolve'
+                    message: data.data.message,
+                    timestamp: new Date().toISOString()
+                  }
+                }));
+              }
+            });
+            
+            console.log(`Admin action: ${data.data.action} for session ${data.data.sessionId}`);
+          } catch (error) {
+            console.error('Error handling admin action:', error);
           }
         }
         

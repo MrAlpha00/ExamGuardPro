@@ -17,6 +17,7 @@ import IncidentManagement from "@/pages/admin/incidents";
 import QuestionManagement from "@/pages/admin/question-management";
 import Results from "@/pages/admin/results";
 import DraftBin from "@/pages/admin/draft-bin";
+import ManualVerification from "@/pages/admin/manual-verification";
 
 // Student pages
 import StudentStart from "@/pages/student/start";
@@ -55,6 +56,7 @@ function Router() {
           <Route path="/admin/questions" component={QuestionManagement} />
           <Route path="/admin/results" component={Results} />
           <Route path="/admin/draft-bin" component={DraftBin} />
+          <Route path="/admin/manual-verification" component={ManualVerification} />
         </>
       )}
       

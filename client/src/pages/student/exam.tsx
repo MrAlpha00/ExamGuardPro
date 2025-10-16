@@ -47,7 +47,7 @@ export default function ExamMode() {
   
   const { isActive: cameraActive, startCamera, stopCamera, stream, error: cameraError, capturePhoto } = useWebcam();
   const { faceDetected, multipleFaces, lookingAway, confidence } = useFaceDetection(stream);
-  const { sendMessage } = useWebSocket();
+  const { sendMessage, lastMessage, isConnected } = useWebSocket();
 
   // Fetch questions for the current exam session (load immediately when session is set)
   const { 
@@ -83,6 +83,64 @@ export default function ExamMode() {
       }, 3000);
     }
   }, [questionsError, questions, questionsLoading, toast, setLocation]);
+
+  // Listen for admin actions via WebSocket
+  useEffect(() => {
+    if (!lastMessage) return;
+    
+    try {
+      const message = JSON.parse(lastMessage.data);
+      
+      if (message.type === 'admin_action') {
+        const { action, message: adminMessage } = message.data;
+        
+        if (action === 'flag') {
+          // Admin flagged the student - auto-submit exam
+          toast({
+            title: "Exam Flagged by Administrator",
+            description: adminMessage || "Your exam has been flagged and will be submitted.",
+            variant: "destructive",
+          });
+          
+          // Auto-submit after a brief delay
+          setTimeout(() => {
+            submitExam();
+          }, 2000);
+          
+        } else if (action === 'resolve') {
+          // Admin resolved the incident - allow student to continue
+          setIsPaused(false);
+          setLookAwayWarningLevel(prev => Math.max(0, prev - 1)); // Reduce warning level
+          
+          toast({
+            title: "Incident Resolved",
+            description: adminMessage || "The administrator has reviewed and resolved the incident. You may continue.",
+          });
+          
+          setShowWarning(true);
+          setWarningMessage("✅ Incident resolved by admin. You may continue your exam.");
+          setTimeout(() => {
+            setShowWarning(false);
+            setWarningMessage("");
+          }, 5000);
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing WebSocket message:', error);
+    }
+  }, [lastMessage, toast]);
+
+  // Authenticate student via WebSocket when session is created
+  useEffect(() => {
+    if (isConnected && examSession && user) {
+      sendMessage({
+        type: 'auth',
+        userId: user.id,
+        userType: 'student',
+        sessionId: examSession.id
+      });
+    }
+  }, [isConnected, examSession, user, sendMessage]);
 
   // Initialize exam session
   const createSessionMutation = useMutation({
@@ -436,7 +494,7 @@ export default function ExamMode() {
           await apiRequest("POST", "/api/monitoring-logs", {
             sessionId: examSession.id,
             eventType: 'snapshot_failed',
-            eventData: { error: error.message, timestamp: new Date().toISOString() }
+            eventData: { error: error instanceof Error ? error.message : 'Unknown error', timestamp: new Date().toISOString() }
           });
         } catch (fallbackError) {
           console.error('Fallback monitoring log failed:', fallbackError);
@@ -455,26 +513,28 @@ export default function ExamMode() {
   // Timer countdown - only start when questions are loaded
   useEffect(() => {
     const questionsLoaded = questions && questions.length > 0;
-    if (timeRemaining > 0 && examSession && questionsLoaded) {
-      const timer = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            // Auto-submit exam
-            submitExam();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    if (!examSession || !questionsLoaded || isPaused) return;
 
-      return () => clearInterval(timer);
-    }
-  }, [timeRemaining, examSession, questions]);
+    const timer = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          // Auto-submit exam when timer reaches zero
+          submitExam();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [examSession, questions, isPaused]);
 
   // Enhanced face detection monitoring with thresholds
   const [lookAwayCount, setLookAwayCount] = useState(0);
   const [multipleFaceCount, setMultipleFaceCount] = useState(0);
   const [lastSnapshotTime, setLastSnapshotTime] = useState(0);
+  const [lookAwayStartTime, setLookAwayStartTime] = useState<number | null>(null);
+  const [lookAwayWarningLevel, setLookAwayWarningLevel] = useState(0); // 0 = no warning, 1 = first, 2 = second, 3 = paused
 
   useEffect(() => {
     if (!examSession || !cameraActive) return;
@@ -519,42 +579,70 @@ export default function ExamMode() {
         setWarningMessage("⚠️ Multiple faces detected! Only the exam taker should be visible.");
         
       } else if (lookingAway) {
-        const newCount = lookAwayCount + 1;
-        setLookAwayCount(newCount);
-        
-        // Progressive warnings based on count
-        if (newCount === 1) {
-          setShowWarning(true);
-          setWarningMessage("⚠️ Please look at the camera during the exam.");
-        } else if (newCount === 3) {
-          // After 3 look-away detections, send alert to admin
-          await handleFaceViolation(
-            "looking_away_repeated", 
-            `Student repeatedly looking away (${newCount} times)`,
-            "high"
-          );
+        // Start tracking look away duration
+        if (!lookAwayStartTime) {
+          setLookAwayStartTime(Date.now());
+        } else {
+          // Check how long they've been looking away
+          const duration = (Date.now() - lookAwayStartTime) / 1000; // Convert to seconds
           
-          setShowWarning(true);
-          setWarningMessage("⚠️ FINAL WARNING: Keep your eyes on the screen. Admin has been notified.");
-          
-        } else if (newCount > 3) {
-          // Continue logging but don't overwhelm with alerts
-          try {
-            await apiRequest("POST", "/api/security-incidents", {
-              sessionId: examSession.id,
-              incidentType: "looking_away",
-              severity: "medium",
-              description: `Student looking away (occurrence ${newCount})`,
-              metadata: { confidence, count: newCount }
+          if (duration >= 10 && lookAwayWarningLevel === 0) {
+            // First warning after 10 seconds
+            setLookAwayWarningLevel(1);
+            setShowWarning(true);
+            setWarningMessage("⚠️ WARNING 1: Please look at your screen. You've been looking away for 10 seconds.");
+            
+            await handleFaceViolation(
+              "looking_away_10sec", 
+              "Student looking away for 10+ seconds - First Warning",
+              "medium"
+            );
+            
+            // Reset timer for next violation
+            setLookAwayStartTime(null);
+            
+          } else if (duration >= 10 && lookAwayWarningLevel === 1) {
+            // Second warning after another 10 seconds
+            setLookAwayWarningLevel(2);
+            setShowWarning(true);
+            setWarningMessage("⚠️ WARNING 2: This is your second warning. Keep your eyes on the screen!");
+            
+            await handleFaceViolation(
+              "looking_away_10sec", 
+              "Student looking away for 10+ seconds - Second Warning",
+              "high"
+            );
+            
+            // Reset timer for next violation
+            setLookAwayStartTime(null);
+            
+          } else if (duration >= 10 && lookAwayWarningLevel === 2) {
+            // Third violation - pause exam
+            setLookAwayWarningLevel(3);
+            setIsPaused(true);
+            setShowWarning(true);
+            setWarningMessage("⛔ EXAM PAUSED: You've exceeded the allowed warnings. Wait for admin to resolve this incident.");
+            
+            await handleFaceViolation(
+              "looking_away_10sec_pause", 
+              "Student looking away for 10+ seconds - Exam Paused (3rd violation)",
+              "critical"
+            );
+            
+            toast({
+              title: "Exam Paused",
+              description: "Your exam has been paused due to repeated security violations. Please wait for admin review.",
+              variant: "destructive",
             });
-          } catch (error) {
-            console.error('Security incident creation error:', error);
+            
+            // Reset timer
+            setLookAwayStartTime(null);
           }
         }
       } else {
-        // Reset look away counter when face is properly detected
-        if (faceDetected && lookAwayCount > 0) {
-          setLookAwayCount(0);
+        // Reset look away timer when face is properly detected
+        if (faceDetected && lookAwayStartTime) {
+          setLookAwayStartTime(null);
         }
       }
 

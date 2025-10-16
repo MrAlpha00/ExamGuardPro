@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import type { SecurityIncident } from "@shared/schema";
 
 interface IncidentStats {
@@ -23,12 +24,45 @@ export default function IncidentManagement() {
   const queryClient = useQueryClient();
   const [selectedIncident, setSelectedIncident] = useState<SecurityIncident | null>(null);
   const [snapshotModalOpen, setSnapshotModalOpen] = useState(false);
+  const { sendMessage, lastMessage, isConnected } = useWebSocket();
 
   // Fetch security incidents
   const { data: incidents = [], isLoading } = useQuery<SecurityIncident[]>({
     queryKey: ["/api/security-incidents"],
     refetchInterval: 5000, // Refresh every 5 seconds
   });
+
+  // Listen for real-time incident updates via WebSocket
+  useEffect(() => {
+    if (lastMessage) {
+      try {
+        const message = JSON.parse(lastMessage.data);
+        if (message.type === 'security_incident') {
+          // Refresh incidents list when new incident arrives
+          queryClient.invalidateQueries({ queryKey: ["/api/security-incidents"] });
+          
+          toast({
+            title: "New Security Incident",
+            description: message.data.description || "A new security incident has been detected",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    }
+  }, [lastMessage, queryClient, toast]);
+
+  // Authenticate as admin via WebSocket
+  useEffect(() => {
+    if (isConnected && user) {
+      sendMessage({
+        type: 'auth',
+        userId: user.id,
+        userType: 'admin'
+      });
+    }
+  }, [isConnected, user, sendMessage]);
 
   // Resolve incident mutation
   const resolveIncidentMutation = useMutation({
@@ -110,8 +144,24 @@ export default function IncidentManagement() {
     }
   };
 
-  const handleResolveIncident = (incident: SecurityIncident, action: string) => {
+  const handleResolveIncident = async (incident: SecurityIncident, action: string) => {
+    // Resolve the incident in the database
     resolveIncidentMutation.mutate({ id: incident.id, action });
+    
+    // Send WebSocket message to the student for real-time action
+    if (isConnected) {
+      sendMessage({
+        type: 'admin_action',
+        data: {
+          sessionId: incident.sessionId,
+          action: action === 'flagged' ? 'flag' : 'resolve',
+          message: action === 'flagged' 
+            ? 'Your exam has been flagged by the administrator and will be submitted.'
+            : 'The incident has been resolved. You may continue your exam.',
+          incidentId: incident.id
+        }
+      });
+    }
   };
 
   const stats = getIncidentStats();
@@ -265,24 +315,27 @@ export default function IncidentManagement() {
                                   {incident.severity}
                                 </Badge>
                               </div>
-                              {incident.metadata && typeof incident.metadata === 'object' && (
-                                <>
-                                  {(incident.metadata as any).confidence && (
-                                    <div className="flex justify-between">
-                                      <span>Confidence:</span>
-                                      <span className="font-medium">
-                                        {Math.round((incident.metadata as any).confidence * 100)}%
-                                      </span>
-                                    </div>
-                                  )}
-                                  {(incident.metadata as any).duration && (
-                                    <div className="flex justify-between">
-                                      <span>Duration:</span>
-                                      <span className="font-medium">{(incident.metadata as any).duration}s</span>
-                                    </div>
-                                  )}
-                                </>
-                              )}
+                              {incident.metadata && typeof incident.metadata === 'object' && (() => {
+                                const metadata = incident.metadata as Record<string, any>;
+                                return (
+                                  <>
+                                    {metadata.confidence && (
+                                      <div className="flex justify-between">
+                                        <span>Confidence:</span>
+                                        <span className="font-medium">
+                                          {Math.round(metadata.confidence * 100)}%
+                                        </span>
+                                      </div>
+                                    )}
+                                    {metadata.duration && (
+                                      <div className="flex justify-between">
+                                        <span>Duration:</span>
+                                        <span className="font-medium">{metadata.duration}s</span>
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                           <div className="bg-white rounded-lg p-3">
