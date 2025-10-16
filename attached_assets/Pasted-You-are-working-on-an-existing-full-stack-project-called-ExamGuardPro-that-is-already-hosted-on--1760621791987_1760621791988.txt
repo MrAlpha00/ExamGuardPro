@@ -1,0 +1,96 @@
+You are working on an existing full-stack project called **ExamGuardPro** that is already hosted on Render with NEON database and OpenAI API. 
+The source code and folder structure are already complete and working, but some functions are disconnected or not working properly. 
+You must work on the same existing Replit project files (do not overwrite working code) — only fix, reconnect, and enhance features based on the below points.
+
+---
+
+## 🔹 Project Summary and Working Flow
+
+- The app opens on the **Home Page** (client side).
+- There are two main logins:
+  1. **Admin login**
+  2. **Student login / Start Exam**
+- The admin can generate a **Hall Ticket** for students.
+- The student scans the **QR Code** on the hall ticket for authentication.
+- After QR scan, student proceeds to **Identity Verification**:
+  - They upload a live capture image and ID proof.
+- Then the **exam starts in fullscreen mode**.
+  - If the student tries to exit fullscreen or go back, the exam auto-submits.
+  - During the exam, the student's camera feed is visible on the admin panel.
+- The system already deploys properly using configured build commands and database URL on Render.
+
+---
+
+## 🔹 Issues to Fix / Functions Not Working
+
+1. **Incident Management and Alerts**
+   - Currently not showing incidents during the exam.
+   - Admin should see alerts for suspicious behavior live.
+   
+2. **Exam Result**
+   - Exam result generation and viewing are not working; fix this flow.
+
+3. **Hall Ticket Handling**
+   - Once a hall ticket is used, it must move to the “Used / Bin” section automatically.
+   - Prevent multiple logins using the same hall ticket.
+
+4. **Manual Verification**
+   - Manual verification system is broken or disconnected — fix and make it functional.
+
+5. **Exam Timer**
+   - Exam session timer is not working.
+   - If timer reaches zero, the exam must auto-submit.
+
+6. **Incident Rules**
+   - If a student turns their head left or right for more than 10 seconds:
+     - Give **1st warning**.
+     - If repeated → **2nd warning**.
+     - If repeated again → **pause the exam automatically**.
+     - This should also be recorded in **Incident Management** on the admin panel.
+     - Admin can:
+       - Tap **Flag Student** → auto-submit exam.
+       - Tap **Resolve** → student can continue exam again.
+     - The same rules should apply repeatedly.
+
+7. **Admin Panel Functionality**
+   - Ensure all buttons, links, and subpages work correctly (Active Students, Incident Management, Alerts, etc.).
+   - Every admin panel section must display live and correct data.
+
+---
+
+## 🔹 New Feature Request
+
+**Feature: College ID Card Barcode Verification**
+
+- In **Identity Verification**, replace or add an option to **scan the college ID card’s barcode** instead of uploading an ID proof image.
+- The barcode data (student ID) should be linked to the student record in the admin panel.
+- When generating a hall ticket, admin can attach the student’s barcode data.
+- During verification, the student scans their ID card barcode through the **device camera**, and the system must validate it against admin records.
+- If the barcode matches → allow to continue to live capture → then start the exam.
+- Confirm if it’s possible to read a **barcode using the system camera (webcam)** and integrate a reliable JavaScript barcode scanner library like **`quaggaJS`**, **`jsQR`**, or **`html5-qrcode`**.
+
+---
+
+## 🔹 Goal
+
+Make sure:
+- All existing functions keep working without breaking.
+- All new and fixed parts are properly linked in both admin and student flows.
+- All exam monitoring, incidents, verification, and admin control features are fully functional and tested.
+
+---
+
+## 🔹 Deliverables
+
+- Correct and connected front-end + back-end code.
+- Working incident management system.
+- Working exam timer and auto submission.
+- Working result system.
+- Working ID verification (with barcode scanning feature if possible).
+- No console or network errors.
+- No broken or dead buttons/pages.
+
+---
+
+Please carefully read the existing code before editing. Only fix or enhance — do not remove working parts.
+After making all fixes, ensure the Render deployment build and database setup remain the same.
