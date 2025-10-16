@@ -48,6 +48,7 @@ export const hallTickets = pgTable("hall_tickets", {
   rollNumber: varchar("roll_number").notNull(),
   studentName: varchar("student_name").notNull(),
   studentEmail: varchar("student_email").notNull(),
+  studentIdBarcode: varchar("student_id_barcode"), // Student ID card barcode for verification
   qrCodeData: text("qr_code_data").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdBy: varchar("created_by").notNull().references(() => users.id),
@@ -175,6 +176,7 @@ export const clientHallTicketSchema = z.object({
   rollNumber: z.string().min(1, "Roll number is required"),
   studentName: z.string().min(1, "Student name is required"),
   studentEmail: z.string().email("Valid email is required"),
+  studentIdBarcode: z.string().optional(), // Optional: Student ID card barcode for verification
 });
 
 export const insertExamSessionSchema = createInsertSchema(examSessions).omit({

@@ -26,6 +26,7 @@ export default function HallTicketGeneration() {
     rollNumber: "",
     studentName: "",
     studentEmail: "",
+    studentIdBarcode: "",
   });
   const [selectedTicket, setSelectedTicket] = useState<HallTicket | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -56,6 +57,7 @@ export default function HallTicketGeneration() {
         rollNumber: "",
         studentName: "",
         studentEmail: "",
+        studentIdBarcode: "",
       });
     },
     onError: (error) => {
@@ -354,6 +356,19 @@ export default function HallTicketGeneration() {
                         required
                         data-testid="input-student-email"
                       />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="studentIdBarcode">Student ID Barcode (Optional)</Label>
+                      <Input
+                        id="studentIdBarcode"
+                        placeholder="Enter student ID card barcode number"
+                        value={formData.studentIdBarcode}
+                        onChange={(e) => handleInputChange("studentIdBarcode", e.target.value)}
+                        data-testid="input-student-barcode"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        This barcode will be used for identity verification during exam login
+                      </p>
                     </div>
                   </div>
 
