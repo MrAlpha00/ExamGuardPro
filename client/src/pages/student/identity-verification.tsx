@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import WebcamMonitor from "@/components/webcam-monitor";
 import FaceDetection from "@/components/face-detection";
 import { useWebcam } from "@/hooks/useWebcam";
 import { useFaceDetection } from "@/hooks/useFaceDetection";
+import { Html5Qrcode } from "html5-qrcode";
 
 interface HallTicketData {
   id: string;
@@ -28,6 +29,8 @@ export default function IdentityVerification() {
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
   const [manualBarcodeEntry, setManualBarcodeEntry] = useState(false);
   const [manualBarcodeValue, setManualBarcodeValue] = useState("");
+  const [barcodeScanning, setBarcodeScanning] = useState(false);
+  const barcodeScannerRef = useRef<Html5Qrcode | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [documentUploaded, setDocumentUploaded] = useState(false);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
@@ -77,10 +80,75 @@ export default function IdentityVerification() {
     }
   }, [hallTicketData]);
 
-  // Auto-start camera when component loads (or bypass in test mode if camera error)
+  // Auto-start camera when component loads - only after barcode verification is complete
   useEffect(() => {
-    startCamera();
-  }, [startCamera]);
+    if (barcodeScanned) {
+      startCamera();
+    }
+  }, [barcodeScanned, startCamera]);
+
+  // Initialize barcode scanner when needed
+  useEffect(() => {
+    const shouldShowScanner = hallTicketData?.studentIdBarcode && !barcodeScanned && !manualBarcodeEntry;
+    
+    if (shouldShowScanner && !barcodeScanning) {
+      const initScanner = async () => {
+        try {
+          setBarcodeScanning(true);
+          const scanner = new Html5Qrcode("barcode-reader");
+          barcodeScannerRef.current = scanner;
+
+          await scanner.start(
+            { facingMode: "environment" },
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 250 },
+            },
+            (decodedText) => {
+              // Barcode detected
+              scanner.stop().then(() => {
+                setBarcodeScanning(false);
+                handleBarcodeValidation(decodedText);
+              }).catch(console.error);
+            },
+            undefined
+          );
+        } catch (error) {
+          console.error("Error starting barcode scanner:", error);
+          setBarcodeScanning(false);
+          toast({
+            title: "Scanner Error",
+            description: "Could not start barcode scanner. Please use manual entry.",
+            variant: "destructive",
+          });
+        }
+      };
+
+      initScanner();
+    }
+
+    // Cleanup scanner on unmount or when manual entry is selected
+    return () => {
+      const scanner = barcodeScannerRef.current;
+      if (scanner) {
+        // Always clear the DOM element, regardless of stop() success
+        scanner.stop()
+          .catch((err) => {
+            // Scanner might already be stopped, that's ok
+            console.log("Scanner stop:", err?.message || "Already stopped");
+          })
+          .finally(() => {
+            // Always clear the DOM element to release resources
+            try {
+              scanner.clear();
+              setBarcodeScanning(false);
+            } catch (error) {
+              console.error("Error clearing scanner:", error);
+            }
+          });
+      }
+    };
+  }, [hallTicketData, barcodeScanned, manualBarcodeEntry, barcodeScanning, toast]);
 
   // Camera error bypass for test mode and auto-verification
   useEffect(() => {
@@ -138,6 +206,33 @@ export default function IdentityVerification() {
       return;
     }
     handleBarcodeValidation(manualBarcodeValue);
+  };
+
+  const switchToManualEntry = async () => {
+    // Always clear the DOM element, regardless of stop() success
+    const scanner = barcodeScannerRef.current;
+    if (scanner) {
+      await scanner.stop()
+        .catch((err) => {
+          // Scanner might already be stopped, that's ok
+          console.log("Scanner stop:", err?.message || "Already stopped");
+        })
+        .finally(() => {
+          // Always clear the DOM element to release resources
+          try {
+            scanner.clear();
+            setBarcodeScanning(false);
+          } catch (error) {
+            console.error("Error clearing scanner:", error);
+          }
+        });
+    }
+    setManualBarcodeEntry(true);
+  };
+
+  const switchToScanner = async () => {
+    setManualBarcodeEntry(false);
+    // Scanner will auto-initialize via useEffect
   };
 
   const handleCapturePhoto = async () => {
@@ -628,10 +723,10 @@ export default function IdentityVerification() {
                       
                       {!manualBarcodeEntry ? (
                         <div className="space-y-3">
-                          <div id="barcode-reader" className="w-full"></div>
+                          <div id="barcode-reader" className="w-full min-h-[250px]"></div>
                           <div className="flex gap-2 justify-center">
                             <Button
-                              onClick={() => setManualBarcodeEntry(true)}
+                              onClick={switchToManualEntry}
                               variant="outline"
                               data-testid="button-manual-barcode"
                             >
@@ -659,7 +754,7 @@ export default function IdentityVerification() {
                               Verify Barcode
                             </Button>
                             <Button
-                              onClick={() => setManualBarcodeEntry(false)}
+                              onClick={switchToScanner}
                               variant="outline"
                               data-testid="button-scan-barcode"
                             >
