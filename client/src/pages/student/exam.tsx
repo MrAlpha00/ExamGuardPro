@@ -510,10 +510,15 @@ export default function ExamMode() {
     };
   }, [examSession, stream, sendMessage, user, hallTicketData]);
 
-  // Timer countdown - only start when questions are loaded
+  // Timer countdown - only start when questions are loaded and time is properly initialized
   useEffect(() => {
     const questionsLoaded = questions && questions.length > 0;
+    // Don't start timer if session not ready, questions not loaded, or paused
     if (!examSession || !questionsLoaded || isPaused) return;
+    
+    // Safety check: Only start timer if we have a valid timeRemaining value
+    // This prevents auto-submit on component mount when timeRemaining is initially 0
+    if (!examSession.timeRemaining || examSession.timeRemaining <= 0) return;
 
     const timer = setInterval(() => {
       setTimeRemaining(prev => {
