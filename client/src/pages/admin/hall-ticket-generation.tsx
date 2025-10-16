@@ -27,9 +27,11 @@ export default function HallTicketGeneration() {
     studentName: "",
     studentEmail: "",
     studentIdBarcode: "",
+    idCardImageUrl: "",
   });
   const [selectedTicket, setSelectedTicket] = useState<HallTicket | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [idCardPreview, setIdCardPreview] = useState<string | null>(null);
 
   // Fetch existing hall tickets
   const { data: hallTickets = [], isLoading } = useQuery<HallTicket[]>({
@@ -58,7 +60,9 @@ export default function HallTicketGeneration() {
         studentName: "",
         studentEmail: "",
         studentIdBarcode: "",
+        idCardImageUrl: "",
       });
+      setIdCardPreview(null);
     },
     onError: (error) => {
       toast({
@@ -98,6 +102,40 @@ export default function HallTicketGeneration() {
 
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleIdCardUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload an image file (JPG, PNG, etc.)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Please upload an image smaller than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setFormData(prev => ({ ...prev, idCardImageUrl: base64String }));
+      setIdCardPreview(base64String);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleViewDetails = (ticket: HallTicket) => {
@@ -369,6 +407,30 @@ export default function HallTicketGeneration() {
                       <p className="text-xs text-muted-foreground mt-1">
                         This barcode will be used for identity verification during exam login
                       </p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="idCardImage">Student ID Card Image (Optional)</Label>
+                      <Input
+                        id="idCardImage"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleIdCardUpload}
+                        data-testid="input-id-card-image"
+                        className="cursor-pointer"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Upload the student's ID card image containing the barcode (Max 5MB)
+                      </p>
+                      {idCardPreview && (
+                        <div className="mt-3">
+                          <img 
+                            src={idCardPreview} 
+                            alt="ID Card Preview" 
+                            className="max-w-xs h-auto border rounded-lg shadow-sm"
+                            data-testid="img-id-card-preview"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 

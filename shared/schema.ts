@@ -49,6 +49,7 @@ export const hallTickets = pgTable("hall_tickets", {
   studentName: varchar("student_name").notNull(),
   studentEmail: varchar("student_email").notNull(),
   studentIdBarcode: varchar("student_id_barcode"), // Student ID card barcode for verification
+  idCardImageUrl: text("id_card_image_url"), // URL/path to uploaded student ID card image
   qrCodeData: text("qr_code_data").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdBy: varchar("created_by").notNull().references(() => users.id),
@@ -177,6 +178,7 @@ export const clientHallTicketSchema = z.object({
   studentName: z.string().min(1, "Student name is required"),
   studentEmail: z.string().email("Valid email is required"),
   studentIdBarcode: z.string().optional(), // Optional: Student ID card barcode for verification
+  idCardImageUrl: z.string().optional(), // Optional: URL to uploaded student ID card image
 });
 
 export const insertExamSessionSchema = createInsertSchema(examSessions).omit({

@@ -221,10 +221,15 @@ export class DatabaseStorage implements IStorage {
         // Include user information
         studentName: users.firstName,
         studentLastName: users.lastName,
-        studentEmail: users.email
+        studentEmail: users.email,
+        // Include hall ticket information
+        hallTicketNumber: hallTickets.hallTicketId,
+        examName: hallTickets.examName,
+        rollNumber: hallTickets.rollNumber
       })
       .from(examSessions)
       .leftJoin(users, eq(users.id, examSessions.studentId))
+      .leftJoin(hallTickets, eq(hallTickets.id, examSessions.hallTicketId))
       .orderBy(desc(examSessions.startTime));
   }
 

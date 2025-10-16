@@ -38,9 +38,13 @@ export default function Results() {
   const getResultsForSession = (session: any) => {
     // Filter questions to only include those that were part of this exam session
     const sessionQuestionIds = Array.isArray(session.questionIds) ? session.questionIds : [];
-    const sessionQuestions = questions.filter(q => sessionQuestionIds.includes(q.id));
+    const sessionQuestions = (questions as any[])
+      .filter(q => sessionQuestionIds.includes(q.id))
+      .map(q => ({
+        ...q,
+        options: Array.isArray(q.options) ? q.options : []
+      })) as Question[];
     
-    // Bypass strict typing for now - focus on functionality
     return generateExamReport(session as any, sessionQuestions);
   };
 
@@ -51,7 +55,7 @@ export default function Results() {
         const results = getResultsForSession(session);
         return [
           `${session.studentName || ''} ${session.studentLastName || ''}`.trim() || session.studentId,
-          "Exam", // Default exam name since examName doesn't exist in schema
+          session.examName || "Exam",
           `${results.score}%`,
           results.correctAnswers,
           results.totalQuestions,
@@ -177,14 +181,20 @@ export default function Results() {
                         <div className="flex-1">
                           <div className="flex items-center gap-4 mb-2">
                             <h3 className="font-semibold text-gray-900 dark:text-white" data-testid={`text-student-${session.studentId}`}>
-                              Student: {session.studentName} {session.studentLastName || ''} 
-                              {!session.studentName && `ID: ${session.studentId}`}
+                              {session.studentName} {session.studentLastName || ''} 
+                              {!session.studentName && `Student ID: ${session.studentId}`}
                             </h3>
                             <Badge variant="outline">
-                              Exam Session
+                              {session.examName || 'Exam Session'}
                             </Badge>
                           </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 dark:text-gray-300">
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm text-gray-600 dark:text-gray-300">
+                            <div>
+                              <span className="font-medium">Hall Ticket:</span>
+                              <span className="ml-1" data-testid={`text-hall-ticket-${session.studentId}`}>
+                                {session.hallTicketNumber || 'N/A'}
+                              </span>
+                            </div>
                             <div>
                               <span className="font-medium">Score:</span>
                               <Badge className={getScoreColor(results.score)} data-testid={`text-score-${session.studentId}`}>
