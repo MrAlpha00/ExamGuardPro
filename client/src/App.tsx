@@ -22,6 +22,7 @@ import ManualVerification from "@/pages/admin/manual-verification";
 // Student pages
 import StudentStart from "@/pages/student/start";
 import StudentAuthentication from "@/pages/student/authentication";
+import IdCardScan from "@/pages/student/id-card-scan";
 import IdentityVerification from "@/pages/student/identity-verification";
 import ExamMode from "@/pages/student/exam";
 import ExamComplete from "@/pages/student/exam-complete";
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/student/start" component={StudentStart} />
       <Route path="/student/auth" component={StudentAuthentication} />
       <Route path="/hall-ticket" component={StudentAuthentication} />
+      <Route path="/student/id-card-scan" component={IdCardScan} />
       <Route path="/student/identity-verification" component={IdentityVerification} />
       <Route path="/student/exam" component={ExamMode} />
       <Route path="/exam-complete" component={ExamComplete} />
