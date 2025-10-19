@@ -218,9 +218,9 @@ export class DatabaseStorage implements IStorage {
         verificationData: examSessions.verificationData,
         createdAt: examSessions.createdAt,
         updatedAt: examSessions.updatedAt,
-        // Include user information
-        studentName: users.firstName,
-        studentLastName: users.lastName,
+        // Use hall ticket student name as primary source (not user table)
+        studentName: hallTickets.studentName,
+        studentLastName: sql<string | null>`NULL`,
         studentEmail: users.email,
         // Include hall ticket information
         hallTicketNumber: hallTickets.hallTicketId,
@@ -233,10 +233,35 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(examSessions.startTime));
   }
 
-  async getActiveExamSessions(): Promise<ExamSession[]> {
+  async getActiveExamSessions(): Promise<any[]> {
     return await db
-      .select()
+      .select({
+        id: examSessions.id,
+        hallTicketId: examSessions.hallTicketId,
+        studentId: examSessions.studentId,
+        status: examSessions.status,
+        startTime: examSessions.startTime,
+        endTime: examSessions.endTime,
+        currentQuestion: examSessions.currentQuestion,
+        answers: examSessions.answers,
+        questionIds: examSessions.questionIds,
+        timeRemaining: examSessions.timeRemaining,
+        isVerified: examSessions.isVerified,
+        verificationData: examSessions.verificationData,
+        createdAt: examSessions.createdAt,
+        updatedAt: examSessions.updatedAt,
+        // Use hall ticket student name as primary source
+        studentName: hallTickets.studentName,
+        studentLastName: sql<string | null>`NULL`,
+        studentEmail: users.email,
+        // Include hall ticket information
+        hallTicketNumber: hallTickets.hallTicketId,
+        examName: hallTickets.examName,
+        rollNumber: hallTickets.rollNumber
+      })
       .from(examSessions)
+      .leftJoin(users, eq(users.id, examSessions.studentId))
+      .leftJoin(hallTickets, eq(hallTickets.id, examSessions.hallTicketId))
       .where(eq(examSessions.status, "in_progress"))
       .orderBy(desc(examSessions.startTime));
   }
