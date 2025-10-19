@@ -85,8 +85,14 @@ export default function IdCardScan() {
   const verifyBarcode = (barcode: string) => {
     setScannedBarcode(barcode);
     
+    console.log('Verifying barcode:', {
+      scanned: barcode,
+      expected: hallTicketData?.studentIdBarcode,
+      hallTicketData: hallTicketData
+    });
+    
     // Check if barcode matches hall ticket barcode
-    if (hallTicketData && hallTicketData.barcode === barcode) {
+    if (hallTicketData && hallTicketData.studentIdBarcode === barcode) {
       setVerificationStatus("success");
       toast({
         title: "ID Card Verified",
@@ -104,7 +110,7 @@ export default function IdCardScan() {
       setVerificationStatus("error");
       toast({
         title: "Verification Failed",
-        description: "ID card barcode does not match. Please try again.",
+        description: `ID card barcode does not match. Scanned: ${barcode}, Expected: ${hallTicketData?.studentIdBarcode || 'Not set'}`,
         variant: "destructive",
       });
     }
