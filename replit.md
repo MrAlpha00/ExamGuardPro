@@ -10,12 +10,25 @@ The platform serves two primary user types: administrators who create and monito
 - **NEW: Dedicated ID Card Scan Page** (`/student/id-card-scan`)
   - Created separate barcode scanning page accessible from student start page
   - **Student Start Page**: Added 4th option card for "ID Card Scan" (now shows 4 cards total)
-  - Student flow: QR Scan → ID Card Scan → Identity Verification → Exam
+  - Student flow: QR Scan → ID Card Scan (MANDATORY) → Identity Verification → Exam
   - Uses html5-qrcode library for camera-based barcode scanning
   - Validates scanned barcode against `studentIdBarcode` field in hall ticket
   - Manual entry option available if scanning fails
-  - Auto-skips to identity verification if hall ticket has no barcode set
   - Success/error visual feedback with detailed error messages
+  - **Barcode Scanning is MANDATORY** - removed auto-skip feature for security
+  
+- **ID Card Barcode Scanner Fixes**:
+  - Fixed camera access issues with proper Html5Qrcode lifecycle management
+  - Scanner div always mounted in DOM (hidden with CSS) to prevent race conditions
+  - Proper cleanup with both `stop()` and `clear()` to release camera resources
+  - useEffect-based initialization ensures scanner starts reliably
+  - Supports automatic rear camera selection on mobile devices
+  
+- **Backend ID Card Storage**:
+  - Fixed server routes to properly save `studentIdBarcode` and `idCardImageUrl` fields
+  - Admin-uploaded ID card images stored as base64 in database
+  - Hall ticket verification API returns ID card data to students
+  - Complete data flow: Admin upload → Database storage → Student verification
   
 - **Exam Timer Fix**: Fixed countdown bug that showed 00:00:00
   - Timer now properly initializes from hall ticket duration
