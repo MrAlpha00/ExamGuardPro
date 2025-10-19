@@ -48,6 +48,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         rollNumber: clientData.rollNumber,
         studentName: clientData.studentName,
         studentEmail: clientData.studentEmail,
+        studentIdBarcode: clientData.studentIdBarcode, // Store student ID barcode
+        idCardImageUrl: clientData.idCardImageUrl, // Store ID card image
         qrCodeData: qrData,
         isActive: true,
         createdBy: userId,
@@ -157,6 +159,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rollNumber: hallTicket.rollNumber,
           examDate: hallTicket.examDate,
           duration: hallTicket.duration,
+          studentIdBarcode: hallTicket.studentIdBarcode, // Include barcode for verification
+          idCardImageUrl: hallTicket.idCardImageUrl, // Include ID card image
         }
       });
     } catch (error) {
