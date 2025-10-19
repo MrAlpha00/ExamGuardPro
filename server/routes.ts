@@ -369,10 +369,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Exam session not found" });
       }
 
-      // Update session with final answers and mark as submitted
+      // Update session with final answers and mark as completed
       const updatedSession = await storage.updateExamSession(id, {
         answers: answers,
-        status: 'submitted',
+        status: 'completed',
         endTime: new Date()
       });
 
