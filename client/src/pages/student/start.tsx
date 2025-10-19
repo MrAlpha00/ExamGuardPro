@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
-import { QrCode, ShieldCheck, PlayCircle } from "lucide-react";
+import { QrCode, ShieldCheck, PlayCircle, Scan } from "lucide-react";
 
 export default function StudentStart() {
   const [, setLocation] = useLocation();
@@ -21,7 +21,7 @@ export default function StudentStart() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card 
             className="hover:shadow-xl transition-all duration-300 cursor-pointer border-2 hover:border-blue-500"
             onClick={() => setLocation("/student/auth")}
@@ -45,6 +45,33 @@ export default function StudentStart() {
               >
                 <QrCode className="w-4 h-4 mr-2" />
                 Scan QR Code
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="hover:shadow-xl transition-all duration-300 cursor-pointer border-2 hover:border-green-500"
+            onClick={() => setLocation("/student/id-card-scan")}
+            data-testid="card-id-card-scan"
+          >
+            <CardHeader className="text-center">
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                  <Scan className="w-8 h-8 text-green-600 dark:text-green-400" />
+                </div>
+              </div>
+              <CardTitle className="text-xl">ID Card Scan</CardTitle>
+              <CardDescription>
+                Scan your student ID card barcode
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full bg-green-600 hover:bg-green-700"
+                data-testid="button-id-card-scan"
+              >
+                <Scan className="w-4 h-4 mr-2" />
+                Scan ID Card
               </Button>
             </CardContent>
           </Card>
