@@ -144,14 +144,14 @@ export default function ExamMode() {
 
   // Initialize exam session
   const createSessionMutation = useMutation({
-    mutationFn: async (hallTicketId: string) => {
+    mutationFn: async ({ hallTicketId, duration }: { hallTicketId: string; duration: number }) => {
       const response = await apiRequest("POST", "/api/exam-sessions", {
         hallTicketId,
         status: "in_progress",
         startTime: new Date().toISOString(),
         currentQuestion: 1,
         answers: {},
-        timeRemaining: hallTicketData?.duration ? hallTicketData.duration * 60 : 10800, // Convert minutes to seconds
+        timeRemaining: duration * 60, // Convert minutes to seconds
       });
       return response.json();
     },
@@ -159,6 +159,7 @@ export default function ExamMode() {
       setExamSession(session);
       // Don't start timer yet - wait for questions to load
       setTimeRemaining(session.timeRemaining);
+      console.log('✅ Exam session created with timeRemaining:', session.timeRemaining, 'seconds');
       enterFullscreen();
     },
     onError: (error: any) => {
@@ -518,12 +519,17 @@ export default function ExamMode() {
     
     // Safety check: Only start timer if we have a valid timeRemaining value
     // This prevents auto-submit on component mount when timeRemaining is initially 0
-    if (!examSession.timeRemaining || examSession.timeRemaining <= 0) return;
+    if (timeRemaining <= 0) {
+      console.warn('⚠️ Timer not started: timeRemaining is 0 or negative');
+      return;
+    }
 
+    console.log('⏱️ Starting exam timer countdown from:', timeRemaining, 'seconds');
     const timer = setInterval(() => {
       setTimeRemaining(prev => {
         if (prev <= 1) {
           // Auto-submit exam when timer reaches zero
+          console.log('⏰ Time expired! Auto-submitting exam...');
           submitExam();
           return 0;
         }
@@ -531,8 +537,11 @@ export default function ExamMode() {
       });
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [examSession, questions, isPaused]);
+    return () => {
+      console.log('🛑 Clearing exam timer interval');
+      clearInterval(timer);
+    };
+  }, [examSession, questions, isPaused, timeRemaining]);
 
   // Enhanced face detection monitoring with thresholds
   const [lookAwayCount, setLookAwayCount] = useState(0);
@@ -704,10 +713,19 @@ export default function ExamMode() {
       const data = JSON.parse(storedData);
       setHallTicketData(data);
       
+      console.log('🎫 Hall ticket data loaded:', {
+        examName: data.examName,
+        duration: data.duration,
+        studentName: data.studentName
+      });
+      
       // Start camera immediately for faster activation
       startCamera();
       
-      createSessionMutation.mutate(data.id);
+      createSessionMutation.mutate({ 
+        hallTicketId: data.id, 
+        duration: data.duration 
+      });
     } catch (error) {
       toast({
         title: "Invalid Data",
