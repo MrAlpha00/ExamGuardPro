@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,6 +16,7 @@ export default function IdCardScan() {
   const [manualBarcode, setManualBarcode] = useState("");
   const [verificationStatus, setVerificationStatus] = useState<"idle" | "success" | "error">("idle");
   const [scannerActive, setScannerActive] = useState(false);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
 
   useEffect(() => {
     // Load hall ticket data from localStorage
@@ -34,66 +35,114 @@ export default function IdCardScan() {
     setHallTicketData(hallTicket);
   }, [toast, setLocation]);
 
-  const startScanning = async () => {
-    setScanning(true);
-    setScannerActive(true);
-    setVerificationStatus("idle");
-
-    try {
-      // Create a new scanner instance
-      const html5QrCode = new Html5Qrcode("barcode-reader");
-      
-      // Get available cameras first
-      const devices = await Html5Qrcode.getCameras();
-      console.log("Available cameras:", devices);
-      
-      if (devices && devices.length === 0) {
-        throw new Error("No cameras found");
-      }
-      
-      // Use the rear camera if available, otherwise use first camera
-      const cameraId = devices.find(d => d.label.toLowerCase().includes('back'))?.id || devices[0].id;
-      
-      await html5QrCode.start(
-        cameraId,
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 150 },
-        },
-        async (decodedText) => {
-          // Stop scanning
-          await html5QrCode.stop();
-          setScanning(false);
-          setScannerActive(false);
-          
-          // Verify barcode
-          verifyBarcode(decodedText);
-        },
-        (errorMessage) => {
-          // Ignore scanning errors (they happen frequently during scanning)
-          console.debug("Scan error:", errorMessage);
+  // Cleanup scanner on unmount
+  useEffect(() => {
+    return () => {
+      const cleanup = async () => {
+        if (scannerRef.current) {
+          try {
+            await scannerRef.current.stop();
+            await scannerRef.current.clear();
+          } catch (err) {
+            console.error("Cleanup error:", err);
+          }
         }
-      );
-    } catch (error: any) {
-      console.error("Scanner error:", error);
-      const errorMsg = error?.message || "Could not access camera";
-      toast({
-        title: "Scanner Error",
-        description: `${errorMsg}. Please use manual entry or check camera permissions.`,
-        variant: "destructive",
-      });
-      setScanning(false);
-      setScannerActive(false);
-    }
+      };
+      cleanup();
+    };
+  }, []);
+
+  // Initialize scanner when scannerActive becomes true
+  useEffect(() => {
+    if (!scannerActive) return;
+
+    const initScanner = async () => {
+      try {
+        setScanning(true);
+        
+        // Stop any existing scanner first
+        if (scannerRef.current) {
+          try {
+            await scannerRef.current.stop();
+            await scannerRef.current.clear();
+          } catch (err) {
+            console.error("Error stopping previous scanner:", err);
+          }
+          scannerRef.current = null;
+        }
+        
+        // Create a new scanner instance
+        const html5QrCode = new Html5Qrcode("barcode-reader");
+        scannerRef.current = html5QrCode;
+        
+        // Get available cameras first
+        const devices = await Html5Qrcode.getCameras();
+        console.log("Available cameras:", devices);
+        
+        if (devices && devices.length === 0) {
+          throw new Error("No cameras found on this device");
+        }
+        
+        // Use the rear camera if available, otherwise use first camera
+        const cameraId = devices.find(d => d.label.toLowerCase().includes('back'))?.id || devices[0].id;
+        
+        await html5QrCode.start(
+          cameraId,
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 150 },
+          },
+          async (decodedText) => {
+            // Stop scanning on successful read
+            if (scannerRef.current) {
+              try {
+                await scannerRef.current.stop();
+                await scannerRef.current.clear();
+              } catch (err) {
+                console.error("Error stopping scanner after scan:", err);
+              }
+              scannerRef.current = null;
+            }
+            setScanning(false);
+            setScannerActive(false);
+            
+            // Verify barcode
+            verifyBarcode(decodedText);
+          },
+          (errorMessage) => {
+            // Ignore scanning errors (they happen frequently during scanning)
+            console.debug("Scan error:", errorMessage);
+          }
+        );
+      } catch (error: any) {
+        console.error("Scanner error:", error);
+        const errorMsg = error?.message || "Could not access camera";
+        toast({
+          title: "Scanner Error",
+          description: `${errorMsg}. Please use manual entry or check camera permissions.`,
+          variant: "destructive",
+        });
+        setScanning(false);
+        setScannerActive(false);
+        scannerRef.current = null;
+      }
+    };
+
+    initScanner();
+  }, [scannerActive, toast]);
+
+  const startScanning = () => {
+    setVerificationStatus("idle");
+    setScannerActive(true);
   };
 
   const stopScanning = async () => {
     try {
-      // Get the existing scanner instance and stop it
-      const html5QrCode = Html5Qrcode.getCameras().then(() => {
-        const scanner = new Html5Qrcode("barcode-reader");
-        return scanner.stop();
-      });
+      if (scannerRef.current) {
+        await scannerRef.current.stop();
+        await scannerRef.current.clear();
+        scannerRef.current = null;
+      }
     } catch (error) {
       console.error("Error stopping scanner:", error);
     }
@@ -189,8 +238,15 @@ export default function IdCardScan() {
           <h2 className="font-semibold text-lg mb-4">Scan ID Card Barcode</h2>
           
           {/* Scanner Display */}
-          <div className="mb-6">
-            {!scannerActive ? (
+          <div className="mb-6 relative">
+            {/* Always render the scanner container for Html5Qrcode */}
+            <div 
+              id="barcode-reader" 
+              className={`rounded-lg overflow-hidden ${scannerActive ? 'block' : 'hidden'}`}
+            ></div>
+            
+            {/* Placeholder shown when scanner is not active */}
+            {!scannerActive && (
               <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
                 <div className="text-center">
                   <Camera className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -199,8 +255,6 @@ export default function IdCardScan() {
                   </p>
                 </div>
               </div>
-            ) : (
-              <div id="barcode-reader" className="rounded-lg overflow-hidden"></div>
             )}
           </div>
 
