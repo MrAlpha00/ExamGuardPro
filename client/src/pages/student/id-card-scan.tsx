@@ -40,10 +40,22 @@ export default function IdCardScan() {
     setVerificationStatus("idle");
 
     try {
+      // Create a new scanner instance
       const html5QrCode = new Html5Qrcode("barcode-reader");
       
+      // Get available cameras first
+      const devices = await Html5Qrcode.getCameras();
+      console.log("Available cameras:", devices);
+      
+      if (devices && devices.length === 0) {
+        throw new Error("No cameras found");
+      }
+      
+      // Use the rear camera if available, otherwise use first camera
+      const cameraId = devices.find(d => d.label.toLowerCase().includes('back'))?.id || devices[0].id;
+      
       await html5QrCode.start(
-        { facingMode: "environment" },
+        cameraId,
         {
           fps: 10,
           qrbox: { width: 250, height: 150 },
@@ -58,14 +70,16 @@ export default function IdCardScan() {
           verifyBarcode(decodedText);
         },
         (errorMessage) => {
-          // Ignore scanning errors (they happen frequently)
+          // Ignore scanning errors (they happen frequently during scanning)
+          console.debug("Scan error:", errorMessage);
         }
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error("Scanner error:", error);
+      const errorMsg = error?.message || "Could not access camera";
       toast({
         title: "Scanner Error",
-        description: "Could not access camera. Please use manual entry.",
+        description: `${errorMsg}. Please use manual entry or check camera permissions.`,
         variant: "destructive",
       });
       setScanning(false);
@@ -75,8 +89,11 @@ export default function IdCardScan() {
 
   const stopScanning = async () => {
     try {
-      const html5QrCode = new Html5Qrcode("barcode-reader");
-      await html5QrCode.stop();
+      // Get the existing scanner instance and stop it
+      const html5QrCode = Html5Qrcode.getCameras().then(() => {
+        const scanner = new Html5Qrcode("barcode-reader");
+        return scanner.stop();
+      });
     } catch (error) {
       console.error("Error stopping scanner:", error);
     }
