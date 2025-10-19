@@ -6,19 +6,25 @@ The platform serves two primary user types: administrators who create and monito
 
 # Recent Changes
 
-## October 19, 2025 - Complete Student Verification Flow Restructure
+## October 19, 2025 - Complete Student Verification Flow Restructure  
 - **NEW: Dedicated ID Card Scan Page** (`/student/id-card-scan`)
-  - Created separate barcode scanning page after QR authentication
-  - Student flow now: QR Scan → ID Card Scan → Identity Verification → Exam
+  - Created separate barcode scanning page accessible from student start page
+  - **Student Start Page**: Added 4th option card for "ID Card Scan" (now shows 4 cards total)
+  - Student flow: QR Scan → ID Card Scan → Identity Verification → Exam
   - Uses html5-qrcode library for camera-based barcode scanning
-  - Validates scanned barcode against hall ticket barcode data
+  - Validates scanned barcode against `studentIdBarcode` field in hall ticket
   - Manual entry option available if scanning fails
-  - Success/error visual feedback with auto-redirect on verification
+  - Auto-skips to identity verification if hall ticket has no barcode set
+  - Success/error visual feedback with detailed error messages
+  
 - **Exam Timer Fix**: Fixed countdown bug that showed 00:00:00
+  - Timer now properly initializes from hall ticket duration
+  - Mutation stores requested duration alongside session data for reliable fallback
   - Removed `timeRemaining` from effect dependency array to prevent restart loop
-  - Duration is now passed directly from hall ticket to session creation
-  - Timer properly counts down from set duration (e.g., 18 minutes = 1080 seconds)
+  - Timer counts down from set duration (e.g., 18 minutes = 1080 seconds)
   - Displays in HH:MM:SS format and auto-submits when reaching zero
+  - Added extensive console logging for debugging timer issues
+  
 - **Results Page Status Fix**: Changed exam submission status to 'completed'
   - Backend now saves submitted exams with status='completed' instead of 'submitted'
   - Matches frontend filter criteria for results display
