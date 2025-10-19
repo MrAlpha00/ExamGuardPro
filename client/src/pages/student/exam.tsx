@@ -541,7 +541,7 @@ export default function ExamMode() {
       console.log('🛑 Clearing exam timer interval');
       clearInterval(timer);
     };
-  }, [examSession, questions, isPaused, timeRemaining]);
+  }, [examSession, questions, isPaused]);
 
   // Enhanced face detection monitoring with thresholds
   const [lookAwayCount, setLookAwayCount] = useState(0);
