@@ -1,0 +1,102 @@
+2025-10-19T07:54:42.294223879Z 7:54:42 AM [express] POST /api/hall-tickets 200 in 365ms :: {"id":"6d388369-0bd1-4620-98c0-d545eec33…
+2025-10-19T07:54:42.786365529Z 7:54:42 AM [express] GET /api/hall-tickets 200 in 137ms :: [{"id":"6d388369-0bd1-4620-98c0-d545eec33…
+2025-10-19T07:54:45.969732734Z 7:54:45 AM [express] GET /api/hall-tickets/6d388369-0bd1-4620-98c0-d545eec33020/qr 200 in 538ms :: {…
+2025-10-19T07:55:15.776172078Z 7:55:15 AM [express] GET /api/logout 200 in 4ms
+2025-10-19T07:55:17.216729066Z 7:55:17 AM [express] GET /api/auth/user 304 in 2ms :: {"email":"admin@secureexam.com","role":"admin"}
+2025-10-19T07:55:19.377472795Z 7:55:19 AM [express] GET /api/auth/user 304 in 3ms :: {"email":"admin@secureexam.com","role":"admin"}
+2025-10-19T07:55:20.030263083Z 7:55:20 AM [express] GET /api/hall-tickets 304 in 348ms :: [{"id":"6d388369-0bd1-4620-98c0-d545eec33…
+2025-10-19T07:55:23.684166344Z 7:55:23 AM [express] POST /api/auth/login 200 in 306ms :: {"message":"Login successful","user":{"ema…
+2025-10-19T07:55:27.141820298Z 7:55:27 AM [express] POST /api/auth/logout 200 in 1ms :: {"message":"Logged out successfully"}
+2025-10-19T07:55:28.164436904Z 7:55:28 AM [express] GET /api/auth/user 401 in 0ms :: {"message":"Unauthorized"}
+2025-10-19T07:55:33.457507784Z 7:55:33 AM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+2025-10-19T07:55:51.574794311Z 7:55:51 AM [express] POST /api/auth/verify-hall-ticket 200 in 286ms :: {"valid":true,"hallTicket":{"…
+2025-10-19T07:56:12.908833691Z 7:56:12 AM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+2025-10-19T07:56:15.66829409Z 7:56:15 AM [express] GET /api/auth/user 401 in 0ms :: {"message":"Unauthorized"}
+2025-10-19T07:56:33.154402223Z ==> Detected service running on port 10000
+2025-10-19T07:56:33.311202856Z 7:56:33 AM [express] GET /api/auth/user 401 in 0ms :: {"message":"Unauthorized"}
+2025-10-19T07:56:33.709734751Z ==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
+2025-10-19T07:56:36.018233278Z 7:56:36 AM [express] GET /api/auth/user 401 in 0ms :: {"message":"Unauthorized"}
+2025-10-19T07:58:00.862981551Z Starting storeIdentityVerification for hall ticket: 6d388369-0bd1-4620-98c0-d545eec33020
+2025-10-19T07:58:01.141824141Z Hall ticket found: HT2025GZ7SXNUV for student: suhas m
+2025-10-19T07:58:01.250982143Z Creating new user for email: sm4686@gmail.com
+2025-10-19T07:58:01.322994109Z Error creating user (non-fatal): error: duplicate key value violates unique constraint "users_pkey"
+2025-10-19T07:58:01.32303727Z ✅ Stored identity document for manual verification: suhas m (1GG23EC056)
+2025-10-19T07:58:01.323058101Z     at file:///opt/render/project/src/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2025-10-19T07:58:01.323061731Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-10-19T07:58:01.323064871Z     at async NeonPreparedQuery.execute (file:///opt/render/project/src/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+2025-10-19T07:58:01.323067031Z     at async DatabaseStorage.storeIdentityVerification (file:///opt/render/project/src/dist/index.js:451:29)
+2025-10-19T07:58:01.323070111Z     at async file:///opt/render/project/src/dist/index.js:1545:9 {
+2025-10-19T07:58:01.323072261Z   length: 197,
+2025-10-19T07:58:01.323075771Z   severity: 'ERROR',
+2025-10-19T07:58:01.323079782Z   code: '23505',
+2025-10-19T07:58:01.323084002Z   detail: 'Key (id)=(student_1GG23EC056) already exists.',
+2025-10-19T07:58:01.323087682Z   hint: undefined,
+2025-10-19T07:58:01.323100852Z   position: undefined,
+2025-10-19T07:58:01.323104802Z   internalPosition: undefined,
+2025-10-19T07:58:01.323107012Z   internalQuery: undefined,
+2025-10-19T07:58:01.323109022Z   where: undefined,
+2025-10-19T07:58:01.323111122Z   schema: 'public',
+2025-10-19T07:58:01.323113112Z   table: 'users',
+2025-10-19T07:58:01.323115052Z   column: undefined,
+2025-10-19T07:58:01.323116992Z   dataType: undefined,
+2025-10-19T07:58:01.323118943Z   constraint: 'users_pkey',
+2025-10-19T07:58:01.323121223Z   file: 'nbtinsert.c',
+2025-10-19T07:58:01.323123203Z   line: '667',
+2025-10-19T07:58:01.323125363Z   routine: '_bt_check_unique'
+2025-10-19T07:58:01.323127433Z }
+2025-10-19T07:58:01.323723467Z 7:58:01 AM [express] POST /api/store-identity-document 200 in 461ms :: {"success":true,"message":"Id…
+2025-10-19T07:58:11.515250118Z 7:58:11 AM [express] GET /api/auth/user 401 in 0ms :: {"message":"Unauthorized"}
+2025-10-19T07:58:11.939076933Z Error creating exam session: error: duplicate key value violates unique constraint "users_pkey"
+2025-10-19T07:58:11.939099384Z     at file:///opt/render/project/src/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2025-10-19T07:58:11.939104514Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-10-19T07:58:11.939109784Z     at async NeonPreparedQuery.execute (file:///opt/render/project/src/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+2025-10-19T07:58:11.939114504Z     at async DatabaseStorage.upsertUser (file:///opt/render/project/src/dist/index.js:264:20)
+2025-10-19T07:58:11.939119334Z     at async file:///opt/render/project/src/dist/index.js:1089:23 {
+2025-10-19T07:58:11.939122225Z   length: 197,
+2025-10-19T07:58:11.939125915Z   severity: 'ERROR',
+2025-10-19T07:58:11.939128695Z   code: '23505',
+2025-10-19T07:58:11.939132445Z   detail: 'Key (id)=(student_1GG23EC056) already exists.',
+2025-10-19T07:58:11.939135265Z   hint: undefined,
+2025-10-19T07:58:11.939138055Z   position: undefined,
+2025-10-19T07:58:11.939141645Z   internalPosition: undefined,
+2025-10-19T07:58:11.939144785Z   internalQuery: undefined,
+2025-10-19T07:58:11.939147555Z   where: undefined,
+2025-10-19T07:58:11.939150355Z   schema: 'public',
+2025-10-19T07:58:11.939153135Z   table: 'users',
+2025-10-19T07:58:11.939155875Z   column: undefined,
+2025-10-19T07:58:11.939158626Z   dataType: undefined,
+2025-10-19T07:58:11.939161426Z   constraint: 'users_pkey',
+2025-10-19T07:58:11.939164175Z   file: 'nbtinsert.c',
+2025-10-19T07:58:11.939167206Z   line: '667',
+2025-10-19T07:58:11.939170156Z   routine: '_bt_check_unique'
+2025-10-19T07:58:11.939182626Z }
+2025-10-19T07:58:11.93974474Z 7:58:11 AM [express] POST /api/exam-sessions 500 in 414ms :: {"message":"Failed to create exam sessi…
+2025-10-19T07:58:15.225802964Z WebSocket connection closed
+2025-10-19T07:58:21.32009479Z 7:58:21 AM [express] GET /api/auth/user 401 in 0ms :: {"message":"Unauthorized"}
+2025-10-19T07:58:21.717366548Z Error creating exam session: error: duplicate key value violates unique constraint "users_pkey"
+2025-10-19T07:58:21.717394479Z     at file:///opt/render/project/src/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2025-10-19T07:58:21.717401299Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-10-19T07:58:21.717409969Z     at async NeonPreparedQuery.execute (file:///opt/render/project/src/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+2025-10-19T07:58:21.717415869Z     at async DatabaseStorage.upsertUser (file:///opt/render/project/src/dist/index.js:264:20)
+2025-10-19T07:58:21.717423859Z     at async file:///opt/render/project/src/dist/index.js:1089:23 {
+2025-10-19T07:58:21.717429029Z   length: 197,
+2025-10-19T07:58:21.717435589Z   severity: 'ERROR',
+2025-10-19T07:58:21.71744095Z   code: '23505',
+2025-10-19T07:58:21.71744821Z   detail: 'Key (id)=(student_1GG23EC056) already exists.',
+2025-10-19T07:58:21.71745366Z   hint: undefined,
+2025-10-19T07:58:21.71745883Z   position: undefined,
+2025-10-19T07:58:21.71746667Z   internalPosition: undefined,
+2025-10-19T07:58:21.71747301Z   internalQuery: undefined,
+2025-10-19T07:58:21.717478421Z   where: undefined,
+2025-10-19T07:58:21.717481941Z   schema: 'public',
+2025-10-19T07:58:21.717485341Z   table: 'users',
+2025-10-19T07:58:21.717488861Z   column: undefined,
+2025-10-19T07:58:21.717492401Z   dataType: undefined,
+2025-10-19T07:58:21.717495841Z   constraint: 'users_pkey',
+2025-10-19T07:58:21.717499271Z   file: 'nbtinsert.c',
+2025-10-19T07:58:21.717502711Z   line: '667',
+2025-10-19T07:58:21.717506991Z   routine: '_bt_check_unique'
+2025-10-19T07:58:21.717512662Z }
+2025-10-19T07:58:21.718130717Z 7:58:21 AM [express] POST /api/exam-sessions 500 in 410ms :: {"message":"Failed to create exam sessi…
+2025-10-19T07:59:55.862183866Z WebSocket connection closed
+2025-10-19T07:59:56.512352039Z 7:59:56 AM [express] GET /api/auth/user 401 in 0ms :: {"message":"Unauthorized"}
