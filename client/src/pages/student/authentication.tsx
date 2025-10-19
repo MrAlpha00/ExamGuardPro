@@ -29,9 +29,9 @@ export default function StudentAuthentication() {
         title: "Success",
         description: "Hall ticket verified successfully",
       });
-      // Store hall ticket data and navigate to verification
+      // Store hall ticket data and navigate to ID card scan
       localStorage.setItem("hallTicketData", JSON.stringify(result.hallTicket));
-      setLocation("/student/identity-verification");
+      setLocation("/student/id-card-scan");
     },
     onError: (error) => {
       toast({
