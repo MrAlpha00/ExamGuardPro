@@ -1,0 +1,68 @@
+2025-10-19T07:20:46.657724578Z [⡿] Pulling schema from database...
+2025-10-19T07:20:46.785638265Z [⢿] Pulling schema from database...
+2025-10-19T07:20:46.913693706Z [⣻] Pulling schema from database...
+2025-10-19T07:20:47.01880164Z [✓] Pulling schema from database...
+2025-10-19T07:20:47.029517681Z [i] No changes detected
+2025-10-19T07:20:47.153117198Z 
+2025-10-19T07:20:47.153142488Z > rest-express@1.0.0 build
+2025-10-19T07:20:47.153147058Z > vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+2025-10-19T07:20:47.153152149Z 
+2025-10-19T07:20:47.365427153Z vite v5.4.19 building for production...
+2025-10-19T07:20:47.423420652Z transforming...
+2025-10-19T07:20:47.731499703Z Browserslist: browsers data (caniuse-lite) is 12 months old. Please run:
+2025-10-19T07:20:47.731518453Z   npx update-browserslist-db@latest
+2025-10-19T07:20:47.731522803Z   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+2025-10-19T07:20:53.377669634Z ✓ 2146 modules transformed.
+2025-10-19T07:20:53.644862886Z rendering chunks...
+2025-10-19T07:20:54.053624665Z computing gzip size...
+2025-10-19T07:20:54.087238353Z ../dist/public/index.html                              1.95 kB │ gzip:   0.74 kB
+2025-10-19T07:20:54.087276524Z ../dist/public/assets/index-CqEi322Y.css              84.82 kB │ gzip:  14.38 kB
+2025-10-19T07:20:54.087497279Z ../dist/public/assets/purify.es-BFmuJLeH.js           21.93 kB │ gzip:   8.62 kB
+2025-10-19T07:20:54.087627822Z ../dist/public/assets/index.es-DGRdoYR_.js           150.53 kB │ gzip:  51.48 kB
+2025-10-19T07:20:54.087652303Z ../dist/public/assets/html2canvas.esm-CBrSDip1.js    201.42 kB │ gzip:  48.03 kB
+2025-10-19T07:20:54.087725194Z ../dist/public/assets/index-BFKfi-tj.js            1,276.53 kB │ gzip: 383.68 kB
+2025-10-19T07:20:54.087827217Z 
+2025-10-19T07:20:54.087837147Z (!) Some chunks are larger than 500 kB after minification. Consider:
+2025-10-19T07:20:54.087842977Z - Using dynamic import() to code-split the application
+2025-10-19T07:20:54.087860698Z - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+2025-10-19T07:20:54.087865388Z - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+2025-10-19T07:20:54.088176065Z ✓ built in 6.70s
+2025-10-19T07:20:54.191113648Z 
+2025-10-19T07:20:54.191134738Z   dist/index.js  71.7kb
+2025-10-19T07:20:54.191139428Z 
+2025-10-19T07:20:54.191143858Z ⚡ Done in 7ms
+2025-10-19T07:20:58.08318568Z ==> Uploading build...
+2025-10-19T07:21:09.025485608Z ==> Uploaded in 7.0s. Compression took 3.9s
+2025-10-19T07:21:09.07207047Z ==> Build successful 🎉
+2025-10-19T07:21:14.567977516Z ==> Deploying...
+2025-10-19T07:21:34.779053583Z ==> Running 'npm start'
+2025-10-19T07:21:35.78716638Z 
+2025-10-19T07:21:35.787183311Z > rest-express@1.0.0 start
+2025-10-19T07:21:35.787187101Z > NODE_ENV=production node dist/index.js
+2025-10-19T07:21:35.787189561Z 
+2025-10-19T07:21:44.076936233Z 7:21:43 AM [express] serving on port 10000
+2025-10-19T07:21:45.306114497Z ==> Your service is live 🎉
+2025-10-19T07:21:45.338297865Z ==> 
+2025-10-19T07:21:45.366883122Z ==> ///////////////////////////////////////////////////////////
+2025-10-19T07:21:45.39690416Z ==> 
+2025-10-19T07:21:45.426360638Z ==> Available at your primary URL https://examguardpro.onrender.com
+2025-10-19T07:21:45.455346826Z ==> 
+2025-10-19T07:21:45.483769063Z ==> ///////////////////////////////////////////////////////////
+2025-10-19T07:23:54.810677446Z 7:23:54 AM [express] GET /api/auth/user 401 in 2ms :: {"message":"Unauthorized"}
+2025-10-19T07:23:58.78010034Z 7:23:58 AM [express] GET /api/auth/user 401 in 0ms :: {"message":"Unauthorized"}
+2025-10-19T07:24:11.558991493Z 7:24:11 AM [express] GET /api/auth/user 401 in 0ms :: {"message":"Unauthorized"}
+2025-10-19T07:24:13.437915582Z ✓ Admin credentials loaded from environment variables
+2025-10-19T07:24:13.783881843Z 7:24:13 AM [express] POST /api/auth/login 200 in 346ms :: {"message":"Login successful","user":{"ema…
+2025-10-19T07:24:16.536541161Z 7:24:16 AM [express] GET /api/auth/user 304 in 2ms :: {"email":"admin@secureexam.com","role":"admin"}
+2025-10-19T07:24:17.987874042Z 7:24:17 AM [express] POST /api/auth/login 200 in 290ms :: {"message":"Login successful","user":{"ema…
+2025-10-19T07:24:20.548566255Z 7:24:20 AM [express] GET /api/hall-tickets 200 in 581ms :: [{"id":"73deaa30-72da-4436-83de-f363c9185…
+2025-10-19T07:24:26.795346357Z 7:24:26 AM [express] PATCH /api/hall-tickets/73deaa30-72da-4436-83de-f363c9185863 200 in 139ms :: {"…
+2025-10-19T07:24:27.200568422Z 7:24:27 AM [express] GET /api/hall-tickets 200 in 137ms :: [{"id":"73deaa30-72da-4436-83de-f363c9185…
+2025-10-19T07:24:32.530168359Z 7:24:32 AM [express] GET /api/questions 304 in 140ms :: [{"id":"d8204eac-aa46-4407-93de-0ffc672b811e…
+2025-10-19T07:24:33.144858556Z 7:24:33 AM [express] GET /api/exam-sessions 200 in 736ms :: [{"id":"e2344896-4978-4e2a-b59e-a446db5b…
+2025-10-19T07:24:49.143566358Z 7:24:49 AM [express] POST /api/auth/logout 200 in 1ms :: {"message":"Logged out successfully"}
+2025-10-19T07:24:50.228301873Z 7:24:50 AM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+2025-10-19T07:24:52.888377073Z 7:24:52 AM [express] GET /api/auth/user 401 in 0ms :: {"message":"Unauthorized"}
+2025-10-19T07:25:26.087780444Z 7:25:26 AM [express] POST /api/auth/verify-hall-ticket 200 in 275ms :: {"valid":true,"hallTicket":{"…
+2025-10-19T07:25:26.174934379Z 7:25:26 AM [express] POST /api/auth/verify-hall-ticket 200 in 279ms :: {"valid":true,"hallTicket":{"…
+2025-10-19T07:25:26.551300139Z 7:25:26 AM [express] POST /api/auth/verify-hall-ticket 200 in 69ms :: {"valid":true,"hallTicket":{"i…
