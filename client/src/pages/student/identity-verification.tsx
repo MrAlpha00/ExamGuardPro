@@ -693,99 +693,104 @@ export default function IdentityVerification() {
           <p className="text-white/80 mt-2">Please verify your identity before starting the exam</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Verification Process */}
-          <div className="space-y-6">
-            {/* Barcode Scanning - only show if barcode is required */}
-            {hallTicketData?.studentIdBarcode && !barcodeScanned && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <i className="fas fa-barcode text-accent"></i>
-                    <span>Scan Student ID Barcode</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="border-2 border-dashed border-border rounded-xl p-6 text-center bg-muted">
-                      <i className="fas fa-barcode text-4xl text-muted-foreground mb-4"></i>
-                      <p className="font-medium mb-2">Scan or enter your student ID barcode</p>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        This verifies your identity using your college ID card
-                      </p>
-                      
-                      {!showBarcodeScanner && !manualBarcodeEntry ? (
-                        <div className="space-y-3">
-                          <div className="flex gap-2 justify-center">
-                            <Button
-                              onClick={startBarcodeScanner}
-                              className="bg-accent hover:opacity-90"
-                              data-testid="button-scan-id-card"
-                            >
-                              <i className="fas fa-camera mr-2"></i>
-                              Scan ID Card
-                            </Button>
-                            <Button
-                              onClick={() => setManualBarcodeEntry(true)}
-                              variant="outline"
-                              data-testid="button-manual-entry"
-                            >
-                              <i className="fas fa-keyboard mr-2"></i>
-                              Enter Manually
-                            </Button>
-                          </div>
+        {/* Show ONLY barcode scanning when verification step is 'barcode' AND barcode is required */}
+        {verificationStep === 'barcode' && hallTicketData?.studentIdBarcode ? (
+          <div className="max-w-2xl mx-auto">
+            <Card className="border-2 border-accent shadow-2xl">
+              <CardHeader className="text-center pb-4">
+                <div className="w-20 h-20 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <i className="fas fa-barcode text-4xl text-accent"></i>
+                </div>
+                <CardTitle className="text-2xl">Scan Student ID Barcode</CardTitle>
+                <p className="text-muted-foreground mt-2">
+                  First step: Verify your identity using your college ID card
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="border-2 border-dashed border-border rounded-xl p-8 text-center bg-muted">
+                    <i className="fas fa-barcode text-6xl text-muted-foreground mb-6"></i>
+                    <p className="font-medium text-lg mb-3">Scan or enter your student ID barcode</p>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Point your camera at the barcode on your college ID card
+                    </p>
+                    
+                    {!showBarcodeScanner && !manualBarcodeEntry ? (
+                      <div className="space-y-4">
+                        <Button
+                          onClick={startBarcodeScanner}
+                          className="bg-accent hover:opacity-90 text-lg px-8 py-6 h-auto"
+                          size="lg"
+                          data-testid="button-scan-id-card"
+                        >
+                          <i className="fas fa-camera mr-3 text-xl"></i>
+                          Scan ID Card
+                        </Button>
+                        <div className="text-center">
+                          <Button
+                            onClick={() => setManualBarcodeEntry(true)}
+                            variant="link"
+                            className="text-accent"
+                            data-testid="button-manual-entry"
+                          >
+                            <i className="fas fa-keyboard mr-2"></i>
+                            Enter Manually Instead
+                          </Button>
                         </div>
-                      ) : showBarcodeScanner && !manualBarcodeEntry ? (
-                        <div className="space-y-3">
-                          <div id="barcode-reader" className="w-full min-h-[250px]"></div>
-                          <div className="flex gap-2 justify-center">
-                            <Button
-                              onClick={switchToManualEntry}
-                              variant="outline"
-                              data-testid="button-switch-manual"
-                            >
-                              <i className="fas fa-keyboard mr-2"></i>
-                              Enter Manually
-                            </Button>
-                          </div>
+                      </div>
+                    ) : showBarcodeScanner && !manualBarcodeEntry ? (
+                      <div className="space-y-4">
+                        <div id="barcode-reader" className="w-full min-h-[300px] rounded-lg overflow-hidden"></div>
+                        <Button
+                          onClick={switchToManualEntry}
+                          variant="outline"
+                          data-testid="button-switch-manual"
+                        >
+                          <i className="fas fa-keyboard mr-2"></i>
+                          Enter Manually Instead
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4 max-w-md mx-auto">
+                        <Input
+                          placeholder="Enter student ID barcode"
+                          value={manualBarcodeValue}
+                          onChange={(e) => setManualBarcodeValue(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleManualBarcodeSubmit()}
+                          className="text-center text-lg py-6"
+                          data-testid="input-manual-barcode"
+                        />
+                        <div className="flex gap-3 justify-center">
+                          <Button
+                            onClick={handleManualBarcodeSubmit}
+                            className="bg-accent hover:opacity-90 px-6"
+                            data-testid="button-submit-barcode"
+                          >
+                            <i className="fas fa-check mr-2"></i>
+                            Verify Barcode
+                          </Button>
+                          <Button
+                            onClick={switchToScanner}
+                            variant="outline"
+                            data-testid="button-back-to-scan"
+                          >
+                            <i className="fas fa-camera mr-2"></i>
+                            Scan Instead
+                          </Button>
                         </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <Input
-                            placeholder="Enter student ID barcode"
-                            value={manualBarcodeValue}
-                            onChange={(e) => setManualBarcodeValue(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleManualBarcodeSubmit()}
-                            data-testid="input-manual-barcode"
-                          />
-                          <div className="flex gap-2 justify-center">
-                            <Button
-                              onClick={handleManualBarcodeSubmit}
-                              className="bg-accent hover:opacity-90"
-                              data-testid="button-submit-barcode"
-                            >
-                              <i className="fas fa-check mr-2"></i>
-                              Verify Barcode
-                            </Button>
-                            <Button
-                              onClick={switchToScanner}
-                              variant="outline"
-                              data-testid="button-back-to-scan"
-                            >
-                              <i className="fas fa-camera mr-2"></i>
-                              Scan Instead
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
-            )}
-            
-            {/* Live Photo Capture */}
-            <Card>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Verification Process */}
+            <div className="space-y-6">
+              {/* Live Photo Capture */}
+              <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <i className="fas fa-video text-accent"></i>
@@ -1127,6 +1132,7 @@ export default function IdentityVerification() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
