@@ -29,7 +29,23 @@ export default function IdCardScan() {
       setLocation("/student/auth");
       return;
     }
-    setHallTicketData(JSON.parse(data));
+    
+    const hallTicket = JSON.parse(data);
+    
+    // Check if barcode is set in hall ticket
+    if (!hallTicket.studentIdBarcode) {
+      toast({
+        title: "ID Card Not Required",
+        description: "Your hall ticket doesn't require ID card verification. Proceeding to identity verification.",
+      });
+      // Skip ID card scan if not required - go directly to identity verification
+      setTimeout(() => {
+        setLocation("/student/identity-verification");
+      }, 2000);
+      return;
+    }
+    
+    setHallTicketData(hallTicket);
   }, [toast, setLocation]);
 
   const startScanning = async () => {

@@ -145,6 +145,7 @@ export default function ExamMode() {
   // Initialize exam session
   const createSessionMutation = useMutation({
     mutationFn: async ({ hallTicketId, duration }: { hallTicketId: string; duration: number }) => {
+      console.log('🎫 Creating session with duration:', duration, 'minutes =', duration * 60, 'seconds');
       const response = await apiRequest("POST", "/api/exam-sessions", {
         hallTicketId,
         status: "in_progress",
@@ -153,13 +154,25 @@ export default function ExamMode() {
         answers: {},
         timeRemaining: duration * 60, // Convert minutes to seconds
       });
-      return response.json();
+      const sessionData = await response.json();
+      // Store the duration we used to create the session so we can use it in onSuccess
+      return { ...sessionData, _requestedDuration: duration };
     },
-    onSuccess: (session) => {
+    onSuccess: (data) => {
+      const session = data;
+      const requestedDuration = data._requestedDuration;
+      
+      console.log('✅ Exam session created:', session);
+      console.log('   - timeRemaining from session:', session.timeRemaining);
+      console.log('   - requestedDuration:', requestedDuration, 'minutes');
+      
       setExamSession(session);
-      // Don't start timer yet - wait for questions to load
-      setTimeRemaining(session.timeRemaining);
-      console.log('✅ Exam session created with timeRemaining:', session.timeRemaining, 'seconds');
+      
+      // Use session.timeRemaining if available, otherwise use the duration we sent in the request
+      const timeInSeconds = session.timeRemaining || (requestedDuration * 60);
+      setTimeRemaining(timeInSeconds);
+      console.log('   - Timer initialized to:', timeInSeconds, 'seconds (', Math.floor(timeInSeconds / 60), 'minutes )');
+      
       enterFullscreen();
     },
     onError: (error: any) => {
