@@ -774,8 +774,25 @@ export default function ExamMode() {
     mutationFn: async () => {
       if (!examSession) throw new Error("No exam session found");
       
+      // Convert answers format from {questionIndex: answer} to {questionId: {selectedOption, timeSpent}}
+      const formattedAnswers: Record<string, any> = {};
+      const questionsArray = questions || [];
+      
+      Object.entries(answers).forEach(([questionIndex, selectedOption]) => {
+        const index = parseInt(questionIndex);
+        const question = questionsArray[index - 1]; // questionIndex is 1-based
+        if (question) {
+          formattedAnswers[question.id] = {
+            questionId: question.id,
+            selectedOption: selectedOption,
+            timeSpent: 0, // TODO: Track time per question
+            timestamp: new Date().toISOString()
+          };
+        }
+      });
+      
       const response = await apiRequest("POST", `/api/exam-sessions/${examSession.id}/submit`, {
-        answers
+        answers: formattedAnswers
       });
       return response.json();
     },
