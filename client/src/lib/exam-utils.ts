@@ -129,18 +129,26 @@ export function generateExamReport(session: ExamSession, questions: Question[]):
   const answeredQuestions = Object.keys(session.answers).length;
   
   let correctAnswers = 0;
-  let totalTimeSpent = 0;
   
   Object.entries(session.answers).forEach(([questionId, answer]) => {
     const question = questions.find(q => q.id === questionId);
     if (question && answer.selectedOption === question.correctAnswer) {
       correctAnswers++;
     }
-    totalTimeSpent += answer.timeSpent;
   });
   
+  // Calculate actual time spent on exam from startTime to endTime
+  let totalTimeSpent = 0;
+  if (session.startTime && session.endTime) {
+    const start = new Date(session.startTime).getTime();
+    const end = new Date(session.endTime).getTime();
+    totalTimeSpent = end - start; // Time in milliseconds
+  }
+  
   const score = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
-  const averageTimePerQuestion = answeredQuestions > 0 ? Math.round(totalTimeSpent / answeredQuestions) : 0;
+  const averageTimePerQuestion = answeredQuestions > 0 && totalTimeSpent > 0 
+    ? Math.round(totalTimeSpent / answeredQuestions) 
+    : 0;
   
   return {
     totalQuestions,

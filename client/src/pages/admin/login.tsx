@@ -86,11 +86,6 @@ export default function AdminLogin() {
                 disabled={isLoading}
               />
             </div>
-            <div className="text-sm text-muted-foreground">
-              <p className="font-medium">Demo Credentials:</p>
-              <p>Email: admin@secureexam.com</p>
-              <p>Password: Admin1230</p>
-            </div>
           </CardContent>
           <CardFooter>
             <Button

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -644,17 +645,33 @@ export default function ExamMode() {
             setLookAwayStartTime(null);
             
           } else if (duration >= 10 && lookAwayWarningLevel === 2) {
-            // Third violation - pause exam
+            // Third violation - flag student and pause exam
             setLookAwayWarningLevel(3);
             setIsPaused(true);
             setShowWarning(true);
             setWarningMessage("⛔ EXAM PAUSED: You've exceeded the allowed warnings. Wait for admin to resolve this incident.");
             
+            // Send face violation incident
             await handleFaceViolation(
               "looking_away_10sec_pause", 
               "Student looking away for 10+ seconds - Exam Paused (3rd violation)",
               "critical"
             );
+            
+            // Send student_flagged message to admin
+            sendMessage({
+              type: 'student_flagged',
+              data: {
+                sessionId: examSession.id,
+                studentId: user?.id,
+                studentName: hallTicketData?.studentName,
+                rollNumber: hallTicketData?.rollNumber,
+                reason: 'Looking away - 3 warnings exceeded',
+                violationType: 'looking_away_10sec_pause',
+                totalWarnings: 3,
+                timestamp: new Date().toISOString()
+              }
+            });
             
             toast({
               title: "Exam Paused",
@@ -894,7 +911,11 @@ export default function ExamMode() {
                   Question {currentQuestion} of {questionsArray.length}
                 </span>
                 <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm">
-                  Multiple Choice
+                  {currentQuestionData.questionType === 'short_answer' 
+                    ? 'Short Answer'
+                    : currentQuestionData.questionType === 'true_false'
+                    ? 'True/False'
+                    : 'Multiple Choice'}
                 </span>
               </div>
               <div className="flex space-x-2">
@@ -910,37 +931,55 @@ export default function ExamMode() {
                 {currentQuestionData.questionText}
               </h2>
               
-              <div className="space-y-4 mt-6">
-                {currentQuestionData.options.map((option: string, index: number) => {
-                  const optionLetter = String.fromCharCode(65 + index); // A, B, C, D
-                  const isSelected = answers[currentQuestion] === optionLetter;
-                  
-                  return (
-                    <label 
-                      key={index}
-                      className={`flex items-center p-4 rounded-lg cursor-pointer transition-colors ${
-                        isSelected 
-                          ? 'bg-primary/10 border-2 border-primary' 
-                          : 'bg-muted hover:bg-border'
-                      }`}
-                    >
-                      <input 
-                        type="radio" 
-                        name="answer" 
-                        value={optionLetter}
-                        checked={isSelected}
-                        onChange={(e) => handleAnswerChange(currentQuestion, e.target.value)}
-                        className="mr-4 w-5 h-5 accent-primary"
-                        data-testid={`option-${optionLetter}`}
-                      />
-                      <div>
-                        <span className="font-medium text-primary mr-3">{optionLetter})</span>
-                        <span>{option}</span>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
+              {/* Conditional rendering based on question type */}
+              {currentQuestionData.questionType === 'short_answer' ? (
+                // Short Answer - Textarea input
+                <div className="mt-6">
+                  <Textarea
+                    placeholder="Type your answer here..."
+                    value={answers[currentQuestion] || ''}
+                    onChange={(e) => handleAnswerChange(currentQuestion, e.target.value)}
+                    className="min-h-[200px] text-base"
+                    data-testid="textarea-short-answer"
+                  />
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {answers[currentQuestion] ? `${(answers[currentQuestion] as string).length} characters` : '0 characters'}
+                  </p>
+                </div>
+              ) : (
+                // Multiple Choice or True/False - Radio buttons
+                <div className="space-y-4 mt-6">
+                  {currentQuestionData.options.map((option: string, index: number) => {
+                    const optionLetter = String.fromCharCode(65 + index); // A, B, C, D
+                    const isSelected = answers[currentQuestion] === optionLetter;
+                    
+                    return (
+                      <label 
+                        key={index}
+                        className={`flex items-center p-4 rounded-lg cursor-pointer transition-colors ${
+                          isSelected 
+                            ? 'bg-primary/10 border-2 border-primary' 
+                            : 'bg-muted hover:bg-border'
+                        }`}
+                      >
+                        <input 
+                          type="radio" 
+                          name="answer" 
+                          value={optionLetter}
+                          checked={isSelected}
+                          onChange={(e) => handleAnswerChange(currentQuestion, e.target.value)}
+                          className="mr-4 w-5 h-5 accent-primary"
+                          data-testid={`option-${optionLetter}`}
+                        />
+                        <div>
+                          <span className="font-medium text-primary mr-3">{optionLetter})</span>
+                          <span>{option}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Navigation Buttons */}

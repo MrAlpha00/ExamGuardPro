@@ -127,12 +127,10 @@ export default function MonitoringSystem() {
   // Convert active sessions to monitoring data with default values
   useEffect(() => {
     if (activeSessions.length > 0) {
-      const sessionData = activeSessions.map(session => ({
+      const sessionData = activeSessions.map((session: any) => ({
         id: session.id,
-        name: session.studentId?.includes('student_') ? 
-              session.studentId.replace('student_', '') : 
-              `Student ${session.studentId?.slice(-4)}`,
-        rollNumber: session.studentId?.replace('student_', '') || 'Unknown',
+        name: session.studentName || session.rollNumber || `Student ${session.studentId?.slice(-4)}`,
+        rollNumber: session.rollNumber || session.studentId?.replace('student_', '') || 'Unknown',
         status: 'normal' as const, // Default status, will be updated via WebSocket
         faceDetected: false, // Default false, will be updated via WebSocket
         multipleFaces: false,
@@ -141,10 +139,27 @@ export default function MonitoringSystem() {
         progress: (session.currentQuestion || 1),
         timeRemaining: session.timeRemaining || 0,
         lastActivity: new Date().toISOString(),
-        examSessionId: session.id
+        examSessionId: session.id,
+        videoSnapshot: undefined // Will be updated via WebSocket
       })) as StudentMonitoring[];
       
-      setMonitoringData(sessionData);
+      // Merge with existing monitoring data from WebSocket
+      setMonitoringData(prev => {
+        const merged = [...sessionData];
+        // Preserve WebSocket updates for video feeds and status
+        prev.forEach(prevStudent => {
+          const index = merged.findIndex(s => s.id === prevStudent.id);
+          if (index !== -1) {
+            merged[index] = {
+              ...merged[index],
+              ...prevStudent, // Keep WebSocket updates
+              name: merged[index].name, // But keep the session name
+              rollNumber: merged[index].rollNumber
+            };
+          }
+        });
+        return merged;
+      });
     }
   }, [activeSessions]);
 
