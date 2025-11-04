@@ -1,0 +1,65 @@
+# Project Update Instructions for ExamGuardPro
+
+Everything in the project is working well, but the following corrections and updates are needed.
+
+============================================================
+🧩 PENDING RESOLUTIONS
+============================================================
+
+1. INCIDENT MANAGEMENT:
+   - The incident management system is not functioning correctly.
+   - Expected behavior:
+     • If a student turns left or right for more than 10 seconds, show a single warning.
+     • If the student continues this behavior 3 times, mark the student as “Flagged”.
+     • Automatically pause the exam when this happens.
+     • Display a notification in the admin panel under “Flagged Students” with options to “Resolve” or “Ignore”.
+   - Implement this logic smoothly and ensure it updates in real-time on the admin page.
+
+2. EXAM RESULTS SHEET:
+   - The "Time Taken" column is not displaying correctly.
+   - Fix this so that each student's total time spent on the exam is shown properly on the results sheet.
+
+3. LIVE MONITORING VIDEO:
+   - Currently, only one student's live video stream is shown in the admin panel.
+   - Modify it so that:
+     • Each active student has a separate video container.
+     • The admin can monitor all students simultaneously.
+     • The camera feed should auto-switch or create multiple containers dynamically depending on the number of active students.
+   - I will upload a reference video to demonstrate the expected layout and switching behavior.
+
+============================================================
+🧹 DELETIONS
+============================================================
+
+1. ID UPLOAD OPTION:
+   - Remove the “Upload ID” option during authentication (identity verification page).
+   - Remove the AI / Manual verification toggle and process completely.
+   - After capturing the live image from the camera, directly proceed to “Continue to Exam”.
+
+2. ID CARD SCAN VERIFICATION PAGE:
+   - After scanning the QR code, currently two verification pages appear.
+   - Remove the second ID verification page entirely, and ensure smooth navigation from QR scan → Live Capture → Continue to Exam.
+
+============================================================
+⚙️ IMPLEMENTATIONS / FIXES
+============================================================
+
+1. HIDE ADMIN DEMO CREDENTIALS:
+   - In the `index` or login section, remove or hide the demo admin credentials that are currently visible for security reasons.
+
+2. REVIEW SHORT ANSWER TYPE FUNCTIONALITY:
+   - In the student panel, fix the “Short Answer” question type.
+   - When a short answer question is given, it should allow text input.
+   - However, during exam preview or result display, it should appear in the same format as MCQs (showing the question but without options).
+   - Ensure the short answer type integrates smoothly with existing question types.
+
+============================================================
+✅ DO NOT TOUCH
+============================================================
+
+- All other features, pages, and workflows that are currently working correctly should remain untouched.
+- Do not modify the working database connection, authentication flow, or deployment configuration.
+
+============================================================
+
+# End of instructions
