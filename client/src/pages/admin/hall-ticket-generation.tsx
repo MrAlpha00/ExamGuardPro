@@ -193,17 +193,25 @@ export default function HallTicketGeneration() {
     
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
+      const nextChar = line[i + 1];
       
       if (char === '"') {
-        inQuotes = !inQuotes;
+        // Handle escaped quotes ("")
+        if (inQuotes && nextChar === '"') {
+          current += '"';
+          i++; // Skip next quote
+        } else {
+          // Toggle quote state
+          inQuotes = !inQuotes;
+        }
       } else if (char === ',' && !inQuotes) {
-        values.push(current.trim());
+        values.push(current);
         current = '';
       } else {
         current += char;
       }
     }
-    values.push(current.trim());
+    values.push(current);
     return values;
   };
 
