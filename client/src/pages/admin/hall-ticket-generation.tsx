@@ -32,6 +32,8 @@ export default function HallTicketGeneration() {
   const [selectedTicket, setSelectedTicket] = useState<HallTicket | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [idCardPreview, setIdCardPreview] = useState<string | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
 
   // Fetch existing hall tickets
   const { data: hallTickets = [], isLoading } = useQuery<HallTicket[]>({
@@ -95,6 +97,30 @@ export default function HallTicketGeneration() {
     },
   });
 
+  // Bulk import mutation
+  const bulkImportMutation = useMutation({
+    mutationFn: async (hallTickets: any[]) => {
+      const response = await apiRequest("POST", "/api/hall-tickets/bulk", { hallTickets });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Success",
+        description: `${data.count} hall tickets created successfully`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/hall-tickets"] });
+      setShowImportModal(false);
+      setImportPreview([]);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createHallTicketMutation.mutate(formData);
@@ -141,6 +167,84 @@ export default function HallTicketGeneration() {
   const handleViewDetails = (ticket: HallTicket) => {
     setSelectedTicket(ticket);
     setShowDetailsModal(true);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload a CSV file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    parseCSVFile(file);
+    e.target.value = ''; // Reset input
+  };
+
+  const parseCSVFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
+      
+      // Expected headers
+      const expectedHeaders = ['examName', 'examDate', 'duration', 'totalQuestions', 'rollNumber', 'studentName', 'studentEmail', 'studentIdBarcode'];
+      
+      const missingHeaders = expectedHeaders.filter(h => !headers.includes(h));
+      if (missingHeaders.length > 0) {
+        toast({
+          title: "Invalid CSV Format",
+          description: `Missing columns: ${missingHeaders.join(', ')}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const hallTickets = lines.slice(1)
+        .filter(line => line.trim())
+        .map((line) => {
+          const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+          const ticket: any = {};
+          
+          headers.forEach((header, i) => {
+            ticket[header] = values[i] || '';
+          });
+
+          return {
+            examName: ticket.examName,
+            examDate: ticket.examDate,
+            duration: parseInt(ticket.duration) || 180,
+            totalQuestions: parseInt(ticket.totalQuestions) || 50,
+            rollNumber: ticket.rollNumber,
+            studentName: ticket.studentName,
+            studentEmail: ticket.studentEmail,
+            studentIdBarcode: ticket.studentIdBarcode || '',
+            idCardImageUrl: '',
+          };
+        });
+
+      setImportPreview(hallTickets);
+      setShowImportModal(true);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleBulkImport = () => {
+    if (importPreview.length === 0) {
+      toast({
+        title: "No Data",
+        description: "Please upload a valid CSV file with hall ticket data",
+        variant: "destructive",
+      });
+      return;
+    }
+    bulkImportMutation.mutate(importPreview);
   };
 
   const handleDownloadPDF = async (ticket: HallTicket) => {
@@ -308,6 +412,13 @@ export default function HallTicketGeneration() {
                         <i className="fas fa-folder-open mr-2"></i>Draft Bin
                       </Button>
                     </Link>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowImportModal(true)}
+                      data-testid="button-bulk-import"
+                    >
+                      <i className="fas fa-upload mr-2"></i>Bulk Import
+                    </Button>
                     <Button variant="outline" data-testid="button-bulk-export">
                       <i className="fas fa-download mr-2"></i>Bulk Export
                     </Button>
@@ -652,6 +763,119 @@ export default function HallTicketGeneration() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Import Modal */}
+      <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Bulk Import Hall Tickets</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="border-2 border-dashed border-primary/20 rounded-lg p-6 text-center">
+              <div className="mb-4">
+                <i className="fas fa-file-csv text-4xl text-primary mb-2"></i>
+                <h3 className="font-medium">Upload CSV File</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  CSV should contain: examName, examDate, duration, totalQuestions, rollNumber, studentName, studentEmail, studentIdBarcode
+                </p>
+              </div>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="csv-upload"
+                data-testid="input-csv-upload"
+              />
+              <label htmlFor="csv-upload">
+                <Button type="button" asChild>
+                  <span>
+                    <i className="fas fa-upload mr-2"></i>Choose CSV File
+                  </span>
+                </Button>
+              </label>
+            </div>
+
+            {importPreview.length > 0 && (
+              <>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">
+                    Preview: {importPreview.length} hall ticket{importPreview.length > 1 ? 's' : ''} ready to import
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setImportPreview([])}
+                    data-testid="button-clear-preview"
+                  >
+                    Clear
+                  </Button>
+                </div>
+
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto max-h-96">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted sticky top-0">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-medium">#</th>
+                          <th className="px-4 py-2 text-left font-medium">Exam Name</th>
+                          <th className="px-4 py-2 text-left font-medium">Date</th>
+                          <th className="px-4 py-2 text-left font-medium">Duration</th>
+                          <th className="px-4 py-2 text-left font-medium">Roll No</th>
+                          <th className="px-4 py-2 text-left font-medium">Student Name</th>
+                          <th className="px-4 py-2 text-left font-medium">Email</th>
+                          <th className="px-4 py-2 text-left font-medium">Barcode</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importPreview.map((ticket, index) => (
+                          <tr key={index} className="border-t hover:bg-muted/50">
+                            <td className="px-4 py-2">{index + 1}</td>
+                            <td className="px-4 py-2">{ticket.examName}</td>
+                            <td className="px-4 py-2">{ticket.examDate}</td>
+                            <td className="px-4 py-2">{ticket.duration} min</td>
+                            <td className="px-4 py-2">{ticket.rollNumber}</td>
+                            <td className="px-4 py-2">{ticket.studentName}</td>
+                            <td className="px-4 py-2 text-xs">{ticket.studentEmail}</td>
+                            <td className="px-4 py-2 text-xs">{ticket.studentIdBarcode || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowImportModal(false)}
+                    data-testid="button-cancel-import"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleBulkImport}
+                    disabled={bulkImportMutation.isPending}
+                    data-testid="button-confirm-import"
+                  >
+                    {bulkImportMutation.isPending ? (
+                      <>
+                        <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-check mr-2"></i>Import {importPreview.length} Hall Tickets
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
