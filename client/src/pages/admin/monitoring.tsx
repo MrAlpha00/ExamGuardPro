@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +9,7 @@ import { Link } from "wouter";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import WebcamMonitor from "@/components/webcam-monitor";
 import type { ExamSession } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface StudentMonitoring {
   id: string;
@@ -42,6 +43,50 @@ export default function MonitoringSystem() {
   const { data: activeSessions = [], isLoading } = useQuery<ExamSession[]>({
     queryKey: ["/api/active-sessions"],
     refetchInterval: 2000, // Refresh every 2 seconds
+  });
+
+  // Flag student mutation
+  const flagStudentMutation = useMutation({
+    mutationFn: async ({ sessionId, reason }: { sessionId: string; reason: string }) => {
+      const response = await apiRequest("POST", `/api/exam-sessions/${sessionId}/flag`, { reason });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Student Flagged",
+        description: "Student has been flagged and exam auto-submitted.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/active-sessions"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Flag Failed",
+        description: error.message || "Failed to flag student",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Resolve student mutation
+  const resolveStudentMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const response = await apiRequest("POST", `/api/exam-sessions/${sessionId}/resolve`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Student Resolved",
+        description: "Student is allowed to continue the exam.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/active-sessions"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Resolve Failed",
+        description: error.message || "Failed to resolve student",
+        variant: "destructive",
+      });
+    },
   });
 
   // Handle WebSocket messages for real-time updates
@@ -445,14 +490,41 @@ export default function MonitoringSystem() {
                     {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                       <div className="flex space-x-2">
-                        <button className="bg-primary text-white p-2 rounded-lg hover:opacity-80" data-testid={`button-expand-${student.id}`}>
-                          <i className="fas fa-expand"></i>
-                        </button>
-                        <button className="bg-yellow-500 text-white p-2 rounded-lg hover:opacity-80" data-testid={`button-snapshot-${student.id}`}>
+                        <button 
+                          className="bg-yellow-500 text-white p-2 rounded-lg hover:opacity-80" 
+                          data-testid={`button-snapshot-${student.id}`}
+                          title="Take Snapshot"
+                        >
                           <i className="fas fa-camera"></i>
                         </button>
-                        <button className="bg-red-500 text-white p-2 rounded-lg hover:opacity-80" data-testid={`button-alert-${student.id}`}>
-                          <i className="fas fa-exclamation-triangle"></i>
+                        <button 
+                          className="bg-red-500 text-white p-2 rounded-lg hover:opacity-80 disabled:opacity-50"
+                          onClick={() => {
+                            if (student.examSessionId) {
+                              flagStudentMutation.mutate({
+                                sessionId: student.examSessionId,
+                                reason: "Manually flagged by admin"
+                              });
+                            }
+                          }}
+                          disabled={flagStudentMutation.isPending}
+                          data-testid={`button-flag-${student.id}`}
+                          title="Flag Student & Auto-Submit Exam"
+                        >
+                          <i className="fas fa-flag"></i>
+                        </button>
+                        <button 
+                          className="bg-green-500 text-white p-2 rounded-lg hover:opacity-80 disabled:opacity-50"
+                          onClick={() => {
+                            if (student.examSessionId) {
+                              resolveStudentMutation.mutate(student.examSessionId);
+                            }
+                          }}
+                          disabled={resolveStudentMutation.isPending}
+                          data-testid={`button-resolve-${student.id}`}
+                          title="Resolve & Allow to Continue"
+                        >
+                          <i className="fas fa-check-circle"></i>
                         </button>
                       </div>
                     </div>

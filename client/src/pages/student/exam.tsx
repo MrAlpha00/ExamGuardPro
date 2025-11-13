@@ -92,14 +92,13 @@ export default function ExamMode() {
     try {
       const message = JSON.parse(lastMessage.data);
       
-      if (message.type === 'admin_action') {
-        const { action, message: adminMessage } = message.data;
-        
-        if (action === 'flag') {
-          // Admin flagged the student - auto-submit exam
+      // Handle student_flagged message from admin
+      if (message.type === 'student_flagged') {
+        // Only process if it's for this student's session
+        if (message.data.sessionId === examSession?.id) {
           toast({
             title: "Exam Flagged by Administrator",
-            description: adminMessage || "Your exam has been flagged and will be submitted.",
+            description: message.data.reason || "Your exam has been flagged and will be submitted.",
             variant: "destructive",
           });
           
@@ -107,15 +106,19 @@ export default function ExamMode() {
           setTimeout(() => {
             submitExam();
           }, 2000);
-          
-        } else if (action === 'resolve') {
-          // Admin resolved the incident - allow student to continue
+        }
+      }
+      
+      // Handle student_resolved message from admin
+      if (message.type === 'student_resolved') {
+        // Only process if it's for this student's session
+        if (message.data.sessionId === examSession?.id) {
           setIsPaused(false);
           setLookAwayWarningLevel(prev => Math.max(0, prev - 1)); // Reduce warning level
           
           toast({
             title: "Incident Resolved",
-            description: adminMessage || "The administrator has reviewed and resolved the incident. You may continue.",
+            description: "The administrator has reviewed and resolved the incident. You may continue.",
           });
           
           setShowWarning(true);
@@ -129,7 +132,7 @@ export default function ExamMode() {
     } catch (error) {
       console.error('Error parsing WebSocket message:', error);
     }
-  }, [lastMessage, toast]);
+  }, [lastMessage, toast, examSession]);
 
   // Authenticate student via WebSocket when session is created
   useEffect(() => {

@@ -466,6 +466,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Flag student - manually flag and auto-submit exam
+  app.post('/api/exam-sessions/:id/flag', requireAdmin, async (req: any, res) => {
+    try {
+      await ensureAdminUser(storage, req.admin.email);
+      const { id } = req.params;
+      const { reason } = req.body;
+      
+      const session = await storage.getExamSession(id);
+      if (!session) {
+        return res.status(404).json({ message: "Exam session not found" });
+      }
+
+      // Update session: pause and mark as flagged
+      const updatedSession = await storage.updateExamSession(id, {
+        status: 'completed', // Auto-submit
+        endTime: new Date()
+      });
+
+      // Create a critical security incident for the flag
+      const incident = await storage.createSecurityIncident({
+        sessionId: id,
+        incidentType: 'admin_flagged',
+        severity: 'critical',
+        description: reason || 'Manually flagged by administrator',
+        metadata: { 
+          flaggedBy: req.admin.email,
+          flaggedAt: new Date().toISOString(),
+          autoSubmitted: true
+        }
+      });
+
+      // Broadcast to all clients
+      wss.clients.forEach((client: WebSocketClient) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'student_flagged',
+            data: {
+              sessionId: id,
+              studentId: session.studentId,
+              reason: reason || 'Manually flagged by administrator',
+              incident
+            }
+          }));
+        }
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Student flagged and exam submitted",
+        session: updatedSession,
+        incident 
+      });
+    } catch (error) {
+      console.error("Error flagging student:", error);
+      res.status(500).json({ message: "Failed to flag student" });
+    }
+  });
+
+  // Resolve student - allow flagged/paused student to continue
+  app.post('/api/exam-sessions/:id/resolve', requireAdmin, async (req: any, res) => {
+    try {
+      await ensureAdminUser(storage, req.admin.email);
+      const { id } = req.params;
+      
+      const session = await storage.getExamSession(id);
+      if (!session) {
+        return res.status(404).json({ message: "Exam session not found" });
+      }
+
+      // Update session: resume exam (only if not already completed/submitted)
+      if (session.status === 'completed' || session.status === 'submitted') {
+        return res.status(400).json({ 
+          message: "Cannot resolve a completed exam",
+          error: "EXAM_ALREADY_COMPLETED"
+        });
+      }
+
+      const updatedSession = await storage.updateExamSession(id, {
+        status: 'in_progress' // Resume
+      });
+
+      // Create a security incident for the resolution
+      const incident = await storage.createSecurityIncident({
+        sessionId: id,
+        incidentType: 'admin_resolved',
+        severity: 'low',
+        description: 'Student allowed to continue exam after admin review',
+        metadata: { 
+          resolvedBy: req.admin.email,
+          resolvedAt: new Date().toISOString()
+        }
+      });
+
+      // Broadcast to all clients
+      wss.clients.forEach((client: WebSocketClient) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'student_resolved',
+            data: {
+              sessionId: id,
+              studentId: session.studentId,
+              incident
+            }
+          }));
+        }
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Student resolved and allowed to continue",
+        session: updatedSession,
+        incident 
+      });
+    } catch (error) {
+      console.error("Error resolving student:", error);
+      res.status(500).json({ message: "Failed to resolve student" });
+    }
+  });
+
   // Security incident routes
   app.post('/api/security-incidents', requireAdmin, async (req: any, res) => {
     try {
