@@ -186,12 +186,43 @@ export default function HallTicketGeneration() {
     e.target.value = ''; // Reset input
   };
 
+  const parseCSVLine = (line: string): string[] => {
+    const values: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        values.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    values.push(current.trim());
+    return values;
+  };
+
   const parseCSVFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const lines = text.split('\n');
-      const headers = lines[0].split(',').map(h => h.trim());
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length === 0) {
+        toast({
+          title: "Empty File",
+          description: "CSV file is empty",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const headers = parseCSVLine(lines[0]).map(h => h.trim());
       
       // Expected headers
       const expectedHeaders = ['examName', 'examDate', 'duration', 'totalQuestions', 'rollNumber', 'studentName', 'studentEmail', 'studentIdBarcode'];
@@ -206,28 +237,52 @@ export default function HallTicketGeneration() {
         return;
       }
 
-      const hallTickets = lines.slice(1)
-        .filter(line => line.trim())
-        .map((line) => {
-          const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-          const ticket: any = {};
-          
-          headers.forEach((header, i) => {
-            ticket[header] = values[i] || '';
-          });
+      const hallTickets = [];
+      const errors = [];
 
-          return {
-            examName: ticket.examName,
-            examDate: ticket.examDate,
-            duration: parseInt(ticket.duration) || 180,
-            totalQuestions: parseInt(ticket.totalQuestions) || 50,
-            rollNumber: ticket.rollNumber,
-            studentName: ticket.studentName,
-            studentEmail: ticket.studentEmail,
-            studentIdBarcode: ticket.studentIdBarcode || '',
-            idCardImageUrl: '',
-          };
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        const ticket: any = {};
+        
+        headers.forEach((header, idx) => {
+          ticket[header] = values[idx] || '';
         });
+
+        // Validate required fields
+        if (!ticket.examName || !ticket.examDate || !ticket.rollNumber || !ticket.studentName || !ticket.studentEmail) {
+          errors.push(`Row ${i + 1}: Missing required fields`);
+          continue;
+        }
+
+        hallTickets.push({
+          examName: ticket.examName,
+          examDate: ticket.examDate,
+          duration: parseInt(ticket.duration) || 180,
+          totalQuestions: parseInt(ticket.totalQuestions) || 50,
+          rollNumber: ticket.rollNumber,
+          studentName: ticket.studentName,
+          studentEmail: ticket.studentEmail,
+          studentIdBarcode: ticket.studentIdBarcode || '',
+          idCardImageUrl: '',
+        });
+      }
+
+      if (errors.length > 0) {
+        toast({
+          title: "CSV Parse Errors",
+          description: errors.slice(0, 3).join(', ') + (errors.length > 3 ? '...' : ''),
+          variant: "destructive",
+        });
+      }
+
+      if (hallTickets.length === 0) {
+        toast({
+          title: "No Valid Data",
+          description: "No valid hall ticket data found in CSV",
+          variant: "destructive",
+        });
+        return;
+      }
 
       setImportPreview(hallTickets);
       setShowImportModal(true);

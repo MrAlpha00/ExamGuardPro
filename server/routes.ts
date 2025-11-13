@@ -62,6 +62,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk hall ticket creation
+  app.post('/api/hall-tickets/bulk', requireAdmin, async (req: any, res) => {
+    try {
+      await ensureAdminUser(storage, req.admin.email);
+      const userId = req.admin.email;
+      const { hallTickets } = req.body;
+
+      if (!Array.isArray(hallTickets) || hallTickets.length === 0) {
+        return res.status(400).json({ message: "Invalid data: hallTickets array required" });
+      }
+
+      // Pre-validate all tickets before creating any
+      const validatedTickets = [];
+      const validationErrors = [];
+
+      for (let i = 0; i < hallTickets.length; i++) {
+        try {
+          const clientData = clientHallTicketSchema.parse(hallTickets[i]);
+          validatedTickets.push(clientData);
+        } catch (error: any) {
+          validationErrors.push(`Row ${i + 2}: ${error.message}`); // +2 for 1-indexed and header
+        }
+      }
+
+      if (validationErrors.length > 0) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: validationErrors.slice(0, 5)
+        });
+      }
+
+      // All validated, now create tickets
+      const createdTickets = [];
+      
+      for (const clientData of validatedTickets) {
+        const hallTicketId = `HT${new Date().getFullYear()}${nanoid(8).toUpperCase()}`;
+        
+        // Generate QR code data
+        const qrData = JSON.stringify({
+          hallTicketId,
+          rollNumber: clientData.rollNumber,
+          examName: clientData.examName,
+          timestamp: new Date().getTime()
+        });
+
+        const hallTicket = await storage.createHallTicket({
+          hallTicketId,
+          examName: clientData.examName,
+          examDate: new Date(clientData.examDate),
+          duration: clientData.duration,
+          totalQuestions: clientData.totalQuestions,
+          rollNumber: clientData.rollNumber,
+          studentName: clientData.studentName,
+          studentEmail: clientData.studentEmail,
+          studentIdBarcode: clientData.studentIdBarcode || '',
+          idCardImageUrl: clientData.idCardImageUrl || '',
+          qrCodeData: qrData,
+          isActive: true,
+          createdBy: userId,
+        });
+
+        createdTickets.push(hallTicket);
+      }
+
+      res.json({ 
+        success: true, 
+        count: createdTickets.length,
+        hallTickets: createdTickets 
+      });
+    } catch (error) {
+      console.error("Error creating bulk hall tickets:", error);
+      res.status(500).json({ message: "Failed to create hall tickets" });
+    }
+  });
+
   app.get('/api/hall-tickets', requireAdmin, async (req: any, res) => {
     try {
       await ensureAdminUser(storage, req.admin.email);
